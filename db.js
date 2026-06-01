@@ -28,8 +28,13 @@ window.PatronDB = (function () {
   const _ovUrl = (localStorage.getItem('po_supabase_url') || '').trim();
   const _ovKey = (localStorage.getItem('po_supabase_key') || '').trim();
 
-  let URL = _ovUrl;
-  let KEY = _ovKey;
+  // Baked-in project keys so every device (phone + PC) connects automatically
+  // with no pasting. A localStorage override still wins if the user sets one.
+  const BAKED_URL = 'https://abmhilbhbkzsimopyuwq.supabase.co';
+  const BAKED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFibWhpbGJoYmt6c2ltb3B5dXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMDY3NjAsImV4cCI6MjA5NTg4Mjc2MH0.ZFW7nxQhNnQmobPvHZaK19dj1ITJZqBKJ1g2GQzwwKM';
+
+  let URL = _ovUrl || BAKED_URL;
+  let KEY = _ovKey || BAKED_KEY;
   let ready = false;
   let sb = null;
   let _syncStarted = false;
