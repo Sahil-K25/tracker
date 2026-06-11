@@ -51,7 +51,7 @@ img{max-width:100%;height:auto}
   --duration-fast:120ms;--duration:200ms;
   --font-inter:'Hanken Grotesk';--font-serif:'Space Grotesk';--font-mono:'JetBrains Mono';
 }
-[data-theme="aurora"]{
+:root[data-theme="aurora"]{
   color-scheme: dark;
   --bg:#080913; --bg-elevated:#12131F; --fg:#EEF0FF;
   --brand:#8B7BFF; --brand-2:#B9ABFF; --brand-ink:#0A0922;
@@ -64,7 +64,7 @@ img{max-width:100%;height:auto}
   --card-shadow:0 0 0 1px rgba(140,130,255,0.05) inset, 0 22px 56px -28px rgba(78,60,210,0.55);
   --glow-1:rgba(124,107,255,0.20); --glow-2:rgba(79,227,208,0.13); --grain-opacity:0.05;
 }
-[data-theme="daylight"]{
+:root[data-theme="daylight"]{
   color-scheme: light;
   --bg:#F3F2FA; --bg-elevated:#FFFFFF; --fg:#171622;
   --brand:#6A45FF; --brand-2:#8E6BFF; --brand-ink:#FFFFFF;
@@ -278,6 +278,7 @@ const _ACC=[139,124,255],_AMB=[251,191,36],_RED=[251,113,133];
 function _lerp(a,b,t){return Math.round(a+(b-a)*t);}
 function urgencyColor(u){let c;if(u<.5){const t=u/.5;c=[_lerp(_ACC[0],_AMB[0],t),_lerp(_ACC[1],_AMB[1],t),_lerp(_ACC[2],_AMB[2],t)];}else{const t=(u-.5)/.5;c=[_lerp(_AMB[0],_RED[0],t),_lerp(_AMB[1],_RED[1],t),_lerp(_AMB[2],_RED[2],t)];}return c.join(',');}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function brandName(){try{var p=JSON.parse(localStorage.getItem('patron_profile_v1')||'null');return (p&&p.name)?String(p.name).trim().split(/\s+/)[0]:'Sahil';}catch(e){return 'Sahil';}}
 function genId(p){return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);}
 
 /* Sparkline SVG */
@@ -369,7 +370,7 @@ const A={
 /* ============================ Views ============================ */
 function headerHtml(){
   return '<header class="header"><div class="headerLeft">'
-    +'<a class="back" href="index.html"><span class="backArrow">←</span> Rowan</a>'
+    +'<a class="back" href="index.html"><span class="backArrow">←</span> '+esc(brandName())+'</a>'
     +'<div class="detailHero"><span class="detailEmoji">'+esc(state.emoji)+'</span><div class="detailHeroText"><h1 class="title">'+esc(state.name)+'</h1><span class="detailChip">'+esc(state.archetype)+'</span></div></div>'
     +(state.blurb?'<p class="detailBlurb">'+esc(state.blurb)+'</p>':'')
     +'</div><div class="headerRight">'+themeSegHtml()+'</div></header>';

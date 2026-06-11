@@ -22,7 +22,7 @@ img{max-width:100%;height:auto}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("patron_theme")||"nocturne");}catch(e){document.documentElement.setAttribute("data-theme","nocturne");}</script>
-<title>Dashboard · Rowan</title>
+<title>Dashboard · Sahil</title>
 <style>
 :root {
   color-scheme: dark;
@@ -50,7 +50,7 @@ img{max-width:100%;height:auto}
   --font-display: 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
-[data-theme="aurora"] {
+:root[data-theme="aurora"] {
   color-scheme: dark;
   --bg: #080913;
   --text-primary: #EEF0FF; --text-secondary: rgba(220,225,255,0.76); --text-tertiary: rgba(220,225,255,0.48);
@@ -71,7 +71,7 @@ img{max-width:100%;height:auto}
   --card-shadow-c: rgba(8,8,30,0.5);
   --body-glow: color-mix(in srgb, #7C6BFF 22%, transparent);
 }
-[data-theme="daylight"] {
+:root[data-theme="daylight"] {
   color-scheme: light;
   --bg: #F3F2FA;
   --text-primary: #171622; --text-secondary: rgba(23,22,34,0.72); --text-tertiary: rgba(23,22,34,0.50);
@@ -747,7 +747,7 @@ body::after {
 <body>
 <div class="page">
 
-  <a class="back" href="index.html"><span class="backArrow">←</span> Rowan</a>
+  <a class="back" href="index.html"><span class="backArrow">←</span> Sahil</a>
   <div class="dash-head"><h1 class="dash-title" id="dashTitle">Dashboard</h1><div class="themeSeg" role="radiogroup" aria-label="Theme"><button type="button" class="themeBtn" data-theme="nocturne"><span class="themeSwatch" style="background:#8B7CFF"></span><span class="themeBtnLabel">Nocturne</span></button><button type="button" class="themeBtn" data-theme="aurora"><span class="themeSwatch" style="background:linear-gradient(135deg,#8B7BFF,#4FE3D0)"></span><span class="themeBtnLabel">Aurora</span></button><button type="button" class="themeBtn" data-theme="daylight"><span class="themeSwatch" style="background:#6A45FF"></span><span class="themeBtnLabel">Daylight</span></button></div></div>
 
   <div class="ticker-row">
@@ -806,6 +806,30 @@ body::after {
       <div class="day-ring-hours"     id="dayRingHours">8:00 AM – 12:00 AM</div>
       <div class="day-ring-est"       id="dayRingEst" hidden></div>
       <div class="day-ring-est-sub"   id="dayRingEstSub"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Daily Habits</div>
+
+    <div class="gm-card" id="gmCardHabits">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow">Resets every day</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num"   id="habitProgressNum">0</span>
+            <span class="gm-progress-total" id="habitProgressTotal">/ 0</span>
+            <span class="gm-progress-label" id="habitProgressLabel">no daily habits yet</span>
+          </div>
+        </div>
+      </div>
+      <div class="gm-bar" id="habitBar"></div>
+      <ul id="habitList" class="goal-list gm-list"></ul>
+      <div id="habitEmpty" class="empty-state">No daily habits yet — add one below.</div>
+      <div class="goal-input-wrap gm-input-wrap">
+        <input id="habitInput" class="gm-input" type="text" placeholder="Add a daily habit…" autocomplete="off">
+        <button type="button" id="habitAddBtn" class="gm-add">+ Add</button>
+      </div>
     </div>
   </div>
 
@@ -1602,11 +1626,187 @@ body::after {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) close(); });
   }
 
+  // ---------- Daily Habits (persist, but completion resets every day) ----------
+  const HABITS_KEY = 'daily_habits_v1';
+  function getHabits() {
+    const h = storeGet(HABITS_KEY);
+    return Array.isArray(h) ? h : [];
+  }
+  function setHabits(list) { storeSet(HABITS_KEY, list); }
+
+  function resetHabitsIfNewDay() {
+    const todayStr = getActiveDateString();
+    const list = getHabits();
+    let changed = false;
+    list.forEach(h => {
+      if (h.done && h.doneDate !== todayStr) {
+        h.done = false;
+        delete h.doneDate;
+        changed = true;
+      }
+    });
+    if (changed) setHabits(list);
+  }
+
+  function makeHabitInlineEdit(textEl, idx, reload) {
+    textEl.addEventListener('click', () => {
+      if (textEl.getAttribute('contenteditable') === 'true') return;
+      const original = textEl.textContent;
+      textEl.setAttribute('contenteditable', 'true');
+      textEl.focus();
+      const range = document.createRange();
+      range.selectNodeContents(textEl);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+
+      function commit() {
+        const next = textEl.textContent.trim();
+        textEl.removeAttribute('contenteditable');
+        if (next && next !== original) {
+          const list = getHabits();
+          if (list[idx]) { list[idx].text = next; setHabits(list); }
+          reload();
+        } else {
+          textEl.textContent = original;
+        }
+      }
+      function cancel() {
+        textEl.removeAttribute('contenteditable');
+        textEl.textContent = original;
+      }
+      textEl.addEventListener('blur', commit, { once: true });
+      textEl.addEventListener('keydown', function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); textEl.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); cancel(); }
+      });
+    });
+  }
+
+  function wireHabitDragReorder(row, reload) {
+    row.setAttribute('draggable', 'true');
+    row.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.idx);
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      row.classList.add('is-drag-over');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('is-drag-over'));
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('is-drag-over');
+      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      const to   = parseInt(row.dataset.idx, 10);
+      if (isNaN(from) || isNaN(to) || from === to) return;
+      const list = getHabits();
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved);
+      setHabits(list);
+      reload();
+    });
+  }
+
+  function buildHabitRow(habit, idx) {
+    const li = document.createElement('li');
+    li.className = 'gm-row';
+    li.dataset.idx = String(idx);
+    if (habit.done) li.classList.add('gm-row-done');
+
+    const handle = document.createElement('span');
+    handle.className = 'gm-handle';
+    handle.textContent = '⋮⋮';
+    li.appendChild(handle);
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'gm-check';
+    cb.checked = !!habit.done;
+    cb.addEventListener('change', () => {
+      const list = getHabits();
+      if (!list[idx]) return;
+      list[idx].done = cb.checked;
+      if (cb.checked) list[idx].doneDate = getActiveDateString();
+      else delete list[idx].doneDate;
+      setHabits(list);
+      renderHabits();
+    });
+    li.appendChild(cb);
+
+    const text = document.createElement('span');
+    text.className = 'gm-text';
+    text.textContent = habit.text;
+    li.appendChild(text);
+    makeHabitInlineEdit(text, idx, renderHabits);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'goal-delete';
+    del.setAttribute('aria-label', 'Delete habit');
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      const list = getHabits();
+      list.splice(idx, 1);
+      setHabits(list);
+      renderHabits();
+    });
+    li.appendChild(del);
+
+    wireHabitDragReorder(li, renderHabits);
+    return li;
+  }
+
+  function renderHabits() {
+    const list = getHabits();
+    const total = list.length;
+    const done  = list.filter(h => h.done).length;
+
+    document.getElementById('habitProgressNum').textContent   = done;
+    document.getElementById('habitProgressTotal').textContent = '/ ' + total;
+    const label = document.getElementById('habitProgressLabel');
+    if (total === 0)         label.textContent = 'no daily habits yet';
+    else if (done === total) label.textContent = 'all done — solid day';
+    else                      label.textContent = 'complete';
+
+    const bar = document.getElementById('habitBar');
+    bar.innerHTML = '';
+    list.forEach(h => {
+      const seg = document.createElement('div');
+      seg.className = 'gm-bar-seg' + (h.done ? ' gm-bar-seg-done' : '');
+      bar.appendChild(seg);
+    });
+
+    document.getElementById('gmCardHabits').classList.toggle('gm-all-done', total > 0 && done === total);
+
+    const listEl  = document.getElementById('habitList');
+    const emptyEl = document.getElementById('habitEmpty');
+    listEl.innerHTML = '';
+    emptyEl.style.display = list.length === 0 ? 'block' : 'none';
+    list.forEach((h, i) => listEl.appendChild(buildHabitRow(h, i)));
+  }
+
+  document.getElementById('habitAddBtn').addEventListener('click', () => {
+    const input = document.getElementById('habitInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const list = getHabits();
+    list.push({ text, done: false });
+    setHabits(list);
+    input.value = '';
+    renderHabits();
+  });
+  document.getElementById('habitInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('habitAddBtn').click(); }
+  });
+
   // ---------- Boot ----------
   rollover();
   processStreak();
+  resetHabitsIfNewDay();
   loadToday();
   loadTomorrow();
+  renderHabits();
   renderStreak();
   setupDayWindowPopover();
   updateDayRing();
@@ -1615,7 +1815,7 @@ body::after {
 
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', (e) => {
-    loadToday(); loadTomorrow(); renderStreak();
+    loadToday(); loadTomorrow(); renderStreak(); renderHabits();
     // vitals updated elsewhere (dashboard / Whoop tab) → refresh the day window
     if (!e || !e.key || e.key === SUITE_HEALTH_KEY || e.key === LEGACY_WHOOP_KEY || e.key === DAY_WINDOW_KEY) updateDayRing();
   });
@@ -1623,7 +1823,7 @@ body::after {
 </script>
 
 <script>(function(){function cur(){try{return localStorage.getItem("patron_theme")||"nocturne";}catch(e){return "nocturne";}}function paint(){var c=cur();document.querySelectorAll(".themeBtn").forEach(function(b){b.classList.toggle("themeBtnActive",b.dataset.theme===c);});}document.addEventListener("click",function(e){var b=e.target.closest(".themeBtn");if(!b)return;var n=b.dataset.theme;document.documentElement.setAttribute("data-theme",n);try{localStorage.setItem("patron_theme",n);}catch(e){}paint();});paint();})();</script>
-<script>(function(){try{var p=JSON.parse(localStorage.getItem('patron_profile_v1')||'null');var n=(p&&p.name)?String(p.name).trim():'';var el=document.getElementById('dashTitle');if(el)el.textContent=(n?n+'’s':'Your')+' Dashboard';}catch(e){}})();</script>
+<script>(function(){try{var p=JSON.parse(localStorage.getItem('patron_profile_v1')||'null');var n=(p&&p.name)?String(p.name).trim():'';var first=n?n.split(/\s+/)[0]:'Sahil';var el=document.getElementById('dashTitle');if(el)el.textContent=(n?n+'’s':'Your')+' Dashboard';document.title=document.title.replace('Sahil',first);var back=document.querySelector('.back');if(back&&back.lastChild)back.lastChild.textContent=' '+first;}catch(e){}})();</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js?v=15"></script>
 <script src="cloud-sync.js?v=15"></script>

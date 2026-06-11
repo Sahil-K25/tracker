@@ -57,7 +57,7 @@ img{max-width:100%;height:auto}
   --duration-fast:120ms; --duration:200ms; --duration-lift:480ms;
   --font-display:'Space Grotesk'; --font-ui:'Hanken Grotesk'; --font-mono:'JetBrains Mono';
 }
-[data-theme="aurora"] {
+:root[data-theme="aurora"] {
   color-scheme: dark;
   --bg: #080913; --bg-elevated: #12131F;
   --surface: rgba(150,160,255,0.045); --surface-2: rgba(150,160,255,0.08);
@@ -73,7 +73,7 @@ img{max-width:100%;height:auto}
   --glow-1: rgba(124,107,255,0.20); --glow-2: rgba(79,227,208,0.13);
   --grain-opacity: 0.05; --overlay: rgba(5,6,16,0.7);
 }
-[data-theme="daylight"] {
+:root[data-theme="daylight"] {
   color-scheme: light;
   --bg: #F3F2FA; --bg-elevated: #FFFFFF;
   --surface: #FFFFFF; --surface-2: #FAF9FF;
@@ -696,6 +696,7 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+function brandName() { try { const p = JSON.parse(localStorage.getItem('patron_profile_v1') || 'null'); return (p && p.name) ? String(p.name).trim().split(/\s+/)[0] : 'Sahil'; } catch (e) { return 'Sahil'; } }
 
 const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -734,7 +735,7 @@ function headerHtml() {
   const dayLabel = DOW[d.getDay()] + ', ' + MON[d.getMonth()] + ' ' + d.getDate();
   return ''
     + '<header class="header"><div class="headerLeft">'
-    +   '<a class="back" href="index.html"><span class="backArrow">←</span> Rowan</a>'
+    +   '<a class="back" href="index.html"><span class="backArrow">←</span> ' + esc(brandName()) + '</a>'
     +   '<span class="dayPill">' + dayLabel + '</span>'
     +   '<h1 class="title">Supplements</h1>'
     +   '<p class="subtitle">Daily stack · resets at 6 AM</p>'
@@ -934,7 +935,7 @@ function recsHtml() {
   if (tickerItems.length >= 2) {
     const rolled = tickerItems.concat(tickerItems);
     header += '<div class="recTicker" role="status" aria-label="Live inputs driving these picks">'
-      + '<div class="recTickerEyebrow"><span class="recTickerPulse" aria-hidden></span>Rowan · live</div>'
+      + '<div class="recTickerEyebrow"><span class="recTickerPulse" aria-hidden></span>' + esc(brandName()) + ' · live</div>'
       + '<div class="recTickerScroll"><div class="recTickerTrack">'
       + rolled.map(it => '<span class="recTickerItem" data-tone="' + it.tone + '">' + esc(it.text) + '</span>').join('')
       + '</div></div></div>';

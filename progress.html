@@ -50,8 +50,8 @@ img{max-width:100%;height:auto}
   --duration-fast:120ms;--duration:200ms;
   --font-inter:'Hanken Grotesk';--font-serif:'Space Grotesk';--font-mono:'JetBrains Mono';
 }
-[data-theme="aurora"]{color-scheme:dark;--bg:#080913;--bg-elevated:#12131F;--surface:rgba(150,160,255,.045);--surface-2:rgba(150,160,255,.08);--fg:#EEF0FF;--muted:rgba(220,225,255,.52);--muted-strong:rgba(220,225,255,.76);--border:rgba(150,160,255,.11);--border-strong:rgba(150,160,255,.22);--brand:#8B7BFF;--brand-2:#B9ABFF;--brand-ink:#0A0922;--brand-soft:rgba(139,123,255,.15);--brand-line:rgba(139,123,255,.32);--brand-glow:rgba(124,107,255,.6);--pos:#4FE3D0;--neg:#FF6FA5;--warn:#FFC65C;}
-[data-theme="daylight"]{color-scheme:light;--bg:#F3F2FA;--bg-elevated:#FFFFFF;--surface:#FFFFFF;--surface-2:#FAF9FF;--fg:#171622;--muted:rgba(23,22,34,.52);--muted-strong:rgba(23,22,34,.72);--border:rgba(23,22,60,.10);--border-strong:rgba(23,22,60,.18);--brand:#6A45FF;--brand-2:#8E6BFF;--brand-ink:#FFFFFF;--brand-soft:rgba(106,69,255,.08);--brand-line:rgba(106,69,255,.24);--brand-glow:rgba(106,69,255,.28);--pos:#0E9E64;--neg:#E11D63;--warn:#B4690E;}
+:root[data-theme="aurora"]{color-scheme:dark;--bg:#080913;--bg-elevated:#12131F;--surface:rgba(150,160,255,.045);--surface-2:rgba(150,160,255,.08);--fg:#EEF0FF;--muted:rgba(220,225,255,.52);--muted-strong:rgba(220,225,255,.76);--border:rgba(150,160,255,.11);--border-strong:rgba(150,160,255,.22);--brand:#8B7BFF;--brand-2:#B9ABFF;--brand-ink:#0A0922;--brand-soft:rgba(139,123,255,.15);--brand-line:rgba(139,123,255,.32);--brand-glow:rgba(124,107,255,.6);--pos:#4FE3D0;--neg:#FF6FA5;--warn:#FFC65C;}
+:root[data-theme="daylight"]{color-scheme:light;--bg:#F3F2FA;--bg-elevated:#FFFFFF;--surface:#FFFFFF;--surface-2:#FAF9FF;--fg:#171622;--muted:rgba(23,22,34,.52);--muted-strong:rgba(23,22,34,.72);--border:rgba(23,22,60,.10);--border-strong:rgba(23,22,60,.18);--brand:#6A45FF;--brand-2:#8E6BFF;--brand-ink:#FFFFFF;--brand-soft:rgba(106,69,255,.08);--brand-line:rgba(106,69,255,.24);--brand-glow:rgba(106,69,255,.28);--pos:#0E9E64;--neg:#E11D63;--warn:#B4690E;}
 *{box-sizing:border-box}html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--font-inter),-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
 .grain-overlay{position:relative}
@@ -248,6 +248,7 @@ function displayToKg(v,u){return u==='lb'?v/2.20462:v;}
 function fmtDisp(kg,u){return kgToDisplay(kg,u).toFixed(1);}
 function photoDate(k){const d=parseKey(k);const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return m[d.getMonth()]+' '+d.getDate();}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function brandName(){try{var p=JSON.parse(localStorage.getItem('patron_profile_v1')||'null');return (p&&p.name)?String(p.name).trim().split(/\s+/)[0]:'Sahil';}catch(e){return 'Sahil';}}
 function smoothPath(pts){
   if(!pts.length)return '';if(pts.length===1)return 'M '+pts[0].x+' '+pts[0].y;
   let d='M '+pts[0].x.toFixed(2)+' '+pts[0].y.toFixed(2);
@@ -413,7 +414,7 @@ function applyTheme(name){if(!THEMES.some(t=>t.key===name))name='nocturne';curre
 function themeSegHtml(){return '<div class="themeSeg" role="radiogroup" aria-label="Theme">'+THEMES.map(t=>'<button type="button" class="themeBtn '+(t.key===currentTheme?'themeBtnActive':'')+'" data-act="theme" data-theme="'+t.key+'" title="'+t.label+'"><span class="themeSwatch" style="background:'+t.swatch+'"></span></button>').join('')+'</div>';}
 function render(){
   document.getElementById('app').innerHTML=
-    '<header class="header"><a class="back" href="index.html"><span class="backArrow">←</span> Rowan</a>'
+    '<header class="header"><a class="back" href="index.html"><span class="backArrow">←</span> ' + esc(brandName()) + '</a>'
     +'<div class="headerRow"><h1 class="title">Progress</h1><div class="unitSeg"><button class="unitBtn '+(state.units==='kg'?'unitBtnActive':'')+'" data-act="units" data-u="kg">kg</button><button class="unitBtn '+(state.units==='lb'?'unitBtnActive':'')+'" data-act="units" data-u="lb">lb</button></div>'+themeSegHtml()+'</div>'
     +'<p class="subtitle">weight log · progress photos</p></header>'
     +heroHtml()+trainingHtml()+compHtml()+photosHtml();

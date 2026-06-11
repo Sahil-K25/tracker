@@ -83,7 +83,7 @@ img{max-width:100%;height:auto}
 }
 
 /* ---- Aurora (vibrant violet → teal) ---- */
-[data-theme="aurora"] {
+:root[data-theme="aurora"] {
   color-scheme: dark;
   --bg: #080913;
   --bg-elevated: #12131F;
@@ -117,7 +117,7 @@ img{max-width:100%;height:auto}
 }
 
 /* ---- Daylight (light) ---- */
-[data-theme="daylight"] {
+:root[data-theme="daylight"] {
   color-scheme: light;
   --bg: #F3F2FA;
   --bg-elevated: #FFFFFF;
@@ -582,6 +582,7 @@ function formatRenewal(iso) {
 }
 function pctClass(pct) { if (pct < 5) return 'good'; if (pct < 25) return 'warn'; return 'bad'; }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function brandName() { try { const p = JSON.parse(localStorage.getItem('patron_profile_v1') || 'null'); return (p && p.name) ? String(p.name).trim().split(/\s+/)[0] : 'Sahil'; } catch (e) { return 'Sahil'; } }
 
 /* ============================================================
  * State + persistence
@@ -790,7 +791,7 @@ function headerHtml() {
   const themeSeg = THEMES.map(t => '<button type="button" class="themeBtn ' + (t.key === currentTheme ? 'themeBtnActive' : '') + '" data-act="theme" data-theme="' + t.key + '"><span class="themeSwatch" style="background:' + t.swatch + '"></span>' + t.label + '</button>').join('');
   const segs = CURRENCIES.map(c => '<button type="button" class="currencyBtn ' + (c === state.currency ? 'currencyBtnActive' : '') + '" data-act="currency" data-c="' + c + '">' + c + '</button>').join('');
   return '<header class="header"><div class="headerLeft">'
-    + '<a class="back" href="index.html"><span class="backArrow">←</span> Rowan</a>'
+    + '<a class="back" href="index.html"><span class="backArrow">←</span> ' + esc(brandName()) + '</a>'
     + '<h1 class="title">Finance</h1><p class="subtitle">Net worth · subs · orders · wishlist</p>'
     + '</div>'
     + '<div class="headerRight">'

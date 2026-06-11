@@ -34,7 +34,7 @@
   --duration-fast:120ms; --duration:200ms;
   --font-display:'Space Grotesk'; --font-ui:'Hanken Grotesk'; --font-mono:'JetBrains Mono';
 }
-[data-theme="aurora"] {
+:root[data-theme="aurora"] {
   color-scheme: dark;
   --bg: #080913; --bg-elevated: #12131F;
   --surface: rgba(150,160,255,0.045); --surface-2: rgba(150,160,255,0.08);
@@ -50,7 +50,7 @@
   --glow-1: rgba(124,107,255,0.20); --glow-2: rgba(79,227,208,0.13);
   --grain-opacity: 0.05; --overlay: rgba(5,6,16,0.7);
 }
-[data-theme="daylight"] {
+:root[data-theme="daylight"] {
   color-scheme: light;
   --bg: #F3F2FA; --bg-elevated: #FFFFFF;
   --surface: #FFFFFF; --surface-2: #FAF9FF;
