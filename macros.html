@@ -60,6 +60,15 @@
   .xBtn { background:transparent; border:1px solid var(--border); color:var(--muted); width:26px; height:26px; border-radius:50%; cursor:pointer; flex-shrink:0; }
   .xBtn:hover { color: var(--neg); border-color: var(--neg-line); }
   .sectionTitle { font-family: var(--font-display); font-weight:600; font-size: var(--text-lg); margin: var(--space-8) 0 0; }
+
+  /* Custom foods/meals */
+  .customFoodGrid { display:grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-top: var(--space-3); }
+  @media (max-width: 560px) { .customFoodGrid { grid-template-columns: repeat(2, 1fr); } }
+  .customFoodUnitToggle { display:flex; gap: var(--space-2); }
+  .customFoodUnitToggle .btn { flex:1; }
+  .customFoodActions { display:flex; align-items:center; justify-content:flex-end; gap: var(--space-3); margin-top: var(--space-3); }
+  .customFoodList { display:flex; flex-direction:column; gap:6px; margin-top: var(--space-3); }
+  .customTag { font-family: var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--brand); }
 </style>
 </head>
 <body>
@@ -111,11 +120,34 @@ function setTodaysLog(list){ store[todayKey()] = list; saveAll(store); }
 function goalCal(){ return store.goalCal != null ? store.goalCal : 2000; } // daily calorie target (editable)
 function setGoalCal(n){ store.goalCal = n; saveAll(store); }
 
+/* ---- custom foods/meals (user-defined, remembered macros per 100g) ---- */
+function getCustomFoods(){ return Array.isArray(store.customFoods) ? store.customFoods : []; }
+function setCustomFoods(list){ store.customFoods = list; saveAll(store); }
+
+/* ---- built-in foods the user has removed from their list ---- */
+function getHiddenFoods(){ return Array.isArray(store.hiddenFoods) ? store.hiddenFoods : []; }
+function setHiddenFoods(list){ store.hiddenFoods = list; saveAll(store); }
+
+function allFoods(){
+  const hidden = getHiddenFoods();
+  return FOODS.filter(f => !hidden.includes(f.name)).concat(getCustomFoods());
+}
+
 function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function round(n){ return Math.round(n); }
+function r1(n){ return Math.round(n*10)/10; }
 
 let query = '';
 let matches = [];
+let cfUnit = 'per100g'; // 'per100g' (scales with grams) or 'serving' (whole meal, fixed amount)
+
+function cfLabels(unit){
+  return unit === 'serving'
+    ? { cal:'Calories (meal)', p:'Protein g (meal)', c:'Carbs g (meal)', f:'Fat g (meal)',
+        hint:'Logged as one fixed item each time — good for whole meals/dishes where you know the total.' }
+    : { cal:'Calories /100g', p:'Protein /100g', c:'Carbs /100g', f:'Fat /100g',
+        hint:'Scales with the grams you log — good for individual ingredients.' };
+}
 
 /* ---- calculations ---- */
 function totals(){
@@ -125,27 +157,35 @@ function totals(){
 }
 
 /* ---- views ---- */
+// MyFitnessPal-style: Goal − Food = Remaining. Split out so the #goal input
+// can refresh just these two pieces on every keystroke (see input handler
+// below) instead of re-rendering the whole page and losing the caret.
+const calCell = (cls, n, l) => '<div class="calCell ' + cls + '"><span class="n">' + round(n) + '</span><span class="l">' + l + '</span></div>';
+function calMathInner(t, goal){
+  const remaining = goal - t.cal;
+  const over = remaining < 0;
+  return calCell('', goal, 'goal')
+    + '<span class="calOp">−</span>'
+    + calCell('', t.cal, 'food')
+    + '<span class="calOp">=</span>'
+    + calCell('remain' + (over ? ' over' : ''), Math.abs(remaining), over ? 'over' : 'remaining');
+}
+function barInner(t, goal){
+  const over = (goal - t.cal) < 0;
+  const pct = Math.min(100, goal > 0 ? (t.cal / goal) * 100 : 0);
+  return '<div class="barFill' + (over ? ' over' : '') + '" style="width:' + pct + '%"></div>';
+}
+
 function summaryHtml(){
   const t = totals();
   const goal = goalCal();
-  const remaining = goal - t.cal;
-  const over = remaining < 0;
-  const pct = Math.min(100, goal > 0 ? (t.cal / goal) * 100 : 0);
 
-  // MyFitnessPal-style: Goal − Food = Remaining
-  const cell = (cls, n, l) => '<div class="calCell ' + cls + '"><span class="n">' + round(n) + '</span><span class="l">' + l + '</span></div>';
   const head = '<div class="calHead">'
-    + '<div class="calMath">'
-    + cell('', goal, 'goal')
-    + '<span class="calOp">−</span>'
-    + cell('', t.cal, 'food')
-    + '<span class="calOp">=</span>'
-    + cell('remain' + (over ? ' over' : ''), Math.abs(remaining), over ? 'over' : 'remaining')
-    + '</div>'
+    + '<div class="calMath" id="calMath">' + calMathInner(t, goal) + '</div>'
     + '<div class="goalEdit"><span class="calCell"><span class="l">daily goal</span></span>'
     + '<input class="fieldInput" id="goal" type="number" min="0" step="50" value="' + goal + '" /></div>'
     + '</div>';
-  const bar = '<div class="bar"><div class="barFill' + (over ? ' over' : '') + '" style="width:' + pct + '%"></div></div>';
+  const bar = '<div class="bar" id="calBar">' + barInner(t, goal) + '</div>';
 
   const box = (accent, val, unit, label) =>
     '<div class="macroBox" data-accent="' + accent + '"><span class="macroVal">' + round(val) + (unit||'') + '</span><span class="macroLabel">' + label + '</span></div>';
@@ -161,15 +201,22 @@ function summaryHtml(){
 
 function resultsInner(){
   const q = query.trim().toLowerCase();
-  matches = q ? FOODS.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8) : [];
+  matches = q ? allFoods().filter(f => f.name.toLowerCase().includes(q)).slice(0, 8) : [];
   if (!q) return '<p class="empty">Start typing to find a food…</p>';
-  if (!matches.length) return '<p class="empty">No match. (Add it to the FOODS list in macros.html.)</p>';
-  return matches.map((f, i) =>
-    '<div class="foodRow"><div><div class="foodName">' + esc(f.name) + '</div>'
-    + '<div class="meta">' + f.cal + ' kcal · ' + f.p + 'P / ' + f.c + 'C / ' + f.f + 'F per 100g</div></div>'
-    + '<div style="display:flex;align-items:center;gap:8px;">'
-    + '<input class="fieldInput gramInput" type="number" min="0" placeholder="g" data-grams="' + i + '" />'
-    + '<button class="btn btn-primary" data-add="' + i + '">Add</button></div></div>').join('');
+  if (!matches.length) return '<p class="empty">No match. Add it as a custom food below.</p>';
+  return matches.map((f, i) => {
+    const isServing = f.unit === 'serving';
+    const meta = round(f.cal) + ' kcal · ' + r1(f.p) + 'P / ' + r1(f.c) + 'C / ' + r1(f.f) + (isServing ? 'F per meal' : 'F per 100g');
+    const qtyInput = isServing
+      ? '<input class="fieldInput gramInput" type="number" min="0" step="0.25" placeholder="×1" value="1" data-grams="' + i + '" />'
+      : '<input class="fieldInput gramInput" type="number" min="0" placeholder="g" value="' + (f.isCustom ? '100' : '') + '" data-grams="' + i + '" />';
+    return '<div class="foodRow"><div><div class="foodName">' + esc(f.name) + (f.isCustom ? ' <span class="customTag">yours</span>' : '') + '</div>'
+      + '<div class="meta">' + meta + '</div></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
+      + qtyInput
+      + '<button class="btn btn-primary" data-add="' + i + '">Add</button>'
+      + '<button class="xBtn" data-remove="' + i + '" title="Remove from list">×</button></div></div>';
+  }).join('');
 }
 
 function searchHtml(){
@@ -178,13 +225,63 @@ function searchHtml(){
     + '<div class="results" id="results">' + resultsInner() + '</div>';
 }
 
+function customFoodsHtml(){
+  const list = getCustomFoods();
+  const rows = list.length
+    ? list.map((f, i) => {
+        const isServing = f.unit === 'serving';
+        const meta = round(f.cal) + ' kcal · ' + r1(f.p) + 'P / ' + r1(f.c) + 'C / ' + r1(f.f) + (isServing ? 'F per meal' : 'F per 100g');
+        return '<div class="foodRow"><div><div class="foodName">' + esc(f.name) + '</div>'
+          + '<div class="meta">' + meta + '</div></div>'
+          + '<button class="xBtn" data-delcustom="' + i + '" title="Remove">×</button></div>';
+      }).join('')
+    : '<p class="empty">No custom foods yet — add one above and it\'ll show up in the food search too.</p>';
+
+  const L = cfLabels(cfUnit);
+  return '<h2 class="sectionTitle">Your foods</h2>'
+    + '<div class="card"><span class="cardName">Add a custom food or meal</span>'
+    + '<div class="field"><label class="fieldLabel">Name</label><input class="fieldInput" id="cfName" type="text" placeholder="e.g. Mum\'s chili" autocomplete="off" /></div>'
+    + '<div class="field"><label class="fieldLabel">Measured as</label>'
+    + '<div class="customFoodUnitToggle">'
+    + '<button type="button" class="btn ' + (cfUnit === 'per100g' ? 'btn-primary' : 'btn-ghost') + '" data-unit="per100g">Per 100g</button>'
+    + '<button type="button" class="btn ' + (cfUnit === 'serving' ? 'btn-primary' : 'btn-ghost') + '" data-unit="serving">Whole meal</button>'
+    + '</div>'
+    + '<p class="cardTag" id="cfHint">' + L.hint + '</p>'
+    + '</div>'
+    + '<div class="customFoodGrid">'
+    + '<div class="field"><label class="fieldLabel" id="cfCalLabel">' + L.cal + '</label><input class="fieldInput" id="cfCal" type="number" min="0" step="1" placeholder="0" inputmode="decimal" /></div>'
+    + '<div class="field"><label class="fieldLabel" id="cfPLabel">' + L.p + '</label><input class="fieldInput" id="cfP" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>'
+    + '<div class="field"><label class="fieldLabel" id="cfCLabel">' + L.c + '</label><input class="fieldInput" id="cfC" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>'
+    + '<div class="field"><label class="fieldLabel" id="cfFLabel">' + L.f + '</label><input class="fieldInput" id="cfF" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>'
+    + '</div>'
+    + '<p class="cardTag">"Log today only" adds these numbers to today\'s totals as-is, without saving a reusable food.</p>'
+    + '<div class="customFoodActions">'
+    + '<button type="button" class="btn btn-ghost" id="cfLogOnce">Log today only</button>'
+    + '<button type="button" class="btn btn-primary" id="cfAdd">+ Save food</button>'
+    + '</div>'
+    + '</div>'
+    + '<div class="customFoodList" id="customFoodList">' + rows + '</div>'
+    + hiddenFoodsHtml();
+}
+
+function hiddenFoodsHtml(){
+  const hidden = getHiddenFoods();
+  if (!hidden.length) return '';
+  const rows = hidden.map((name, i) =>
+    '<div class="foodRow"><div class="foodName">' + esc(name) + '</div>'
+    + '<button type="button" class="btn btn-ghost" data-restore="' + i + '">Restore</button></div>').join('');
+  return '<h2 class="sectionTitle">Removed from your list</h2><div class="customFoodList">' + rows + '</div>';
+}
+
 function logHtml(){
   const log = todaysLog();
   if (!log.length) return '<h2 class="sectionTitle">Logged today</h2><p class="empty">Nothing logged yet.</p>';
-  const rows = log.map((e, i) =>
-    '<div class="logRow"><div><div class="foodName">' + esc(e.name) + ' <span class="meta">' + e.grams + 'g</span></div>'
-    + '<div class="nums">' + round(e.cal) + ' kcal · ' + round(e.p) + 'P / ' + round(e.c) + 'C / ' + round(e.f) + 'F</div></div>'
-    + '<button class="xBtn" data-del="' + i + '" title="Remove">×</button></div>').join('');
+  const rows = log.map((e, i) => {
+    const qty = e.servings != null ? (r1(e.servings) + '×') : (e.grams + 'g');
+    return '<div class="logRow"><div><div class="foodName">' + esc(e.name) + ' <span class="meta">' + qty + '</span></div>'
+      + '<div class="nums">' + round(e.cal) + ' kcal · ' + round(e.p) + 'P / ' + round(e.c) + 'C / ' + round(e.f) + 'F</div></div>'
+      + '<button class="xBtn" data-del="' + i + '" title="Remove">×</button></div>';
+  }).join('');
   return '<h2 class="sectionTitle">Logged today</h2><div class="logList">' + rows + '</div>';
 }
 
@@ -195,7 +292,7 @@ function headerHtml(){
 
 function render(){
   document.getElementById('app').innerHTML =
-    headerHtml() + summaryHtml() + searchHtml() + logHtml();
+    headerHtml() + summaryHtml() + searchHtml() + customFoodsHtml() + logHtml();
   document.getElementById('themeSeg').innerHTML = Patron.switcherHtml();
 }
 
@@ -209,8 +306,12 @@ document.addEventListener('input', e => {
   if (e.target.id === 'goal') {
     const n = Number(e.target.value);
     setGoalCal(isFinite(n) && n >= 0 ? n : 0);
-    render(); // refresh the Remaining number + bar live
-    document.getElementById('goal').focus(); // keep the cursor in the goal box
+    // refresh just the math + bar so the goal input itself is never
+    // recreated — keeps focus and caret position intact while typing
+    const t = totals();
+    const goal = goalCal();
+    document.getElementById('calMath').innerHTML = calMathInner(t, goal);
+    document.getElementById('calBar').innerHTML = barInner(t, goal);
   }
 });
 
@@ -218,12 +319,16 @@ document.addEventListener('click', e => {
   const add = e.target.closest('[data-add]');
   if (add) {
     const f = matches[Number(add.getAttribute('data-add'))];
-    const gramsEl = document.querySelector('[data-grams="' + add.getAttribute('data-add') + '"]');
-    const grams = Number(gramsEl && gramsEl.value);
-    if (!f || !isFinite(grams) || grams <= 0) { alert('Enter how many grams.'); return; }
-    const k = grams / 100;
+    const amountEl = document.querySelector('[data-grams="' + add.getAttribute('data-add') + '"]');
+    const amount = Number(amountEl && amountEl.value);
+    if (!f || !isFinite(amount) || amount <= 0) { alert(f && f.unit === 'serving' ? 'Enter how many servings.' : 'Enter how many grams.'); return; }
     const log = todaysLog();
-    log.push({ name: f.name, grams, cal: f.cal*k, p: f.p*k, c: f.c*k, f: f.f*k });
+    if (f.unit === 'serving') {
+      log.push({ name: f.name, servings: amount, cal: f.cal*amount, p: f.p*amount, c: f.c*amount, f: f.f*amount });
+    } else {
+      const k = amount / 100;
+      log.push({ name: f.name, grams: amount, cal: f.cal*k, p: f.p*k, c: f.c*k, f: f.f*k });
+    }
     setTodaysLog(log);
     query = '';
     render();
@@ -235,6 +340,76 @@ document.addEventListener('click', e => {
     log.splice(Number(del.getAttribute('data-del')), 1);
     setTodaysLog(log);
     render();
+    return;
+  }
+  const remove = e.target.closest('[data-remove]');
+  if (remove) {
+    const f = matches[Number(remove.getAttribute('data-remove'))];
+    if (!f) return;
+    if (f.isCustom) {
+      const list = getCustomFoods();
+      const idx = list.indexOf(f);
+      if (idx > -1) list.splice(idx, 1);
+      setCustomFoods(list);
+    } else {
+      const hidden = getHiddenFoods();
+      if (!hidden.includes(f.name)) { hidden.push(f.name); setHiddenFoods(hidden); }
+    }
+    render();
+    return;
+  }
+  const restore = e.target.closest('[data-restore]');
+  if (restore) {
+    const hidden = getHiddenFoods();
+    hidden.splice(Number(restore.getAttribute('data-restore')), 1);
+    setHiddenFoods(hidden);
+    render();
+    return;
+  }
+  if (e.target.id === 'cfLogOnce') {
+    const name = document.getElementById('cfName').value.trim();
+    if (!name) { alert('Give it a name.'); return; }
+    const num = id => Math.max(0, Number(document.getElementById(id).value) || 0);
+    // logs the entered totals as today's entry only — doesn't save it to "Your foods"
+    const log = todaysLog();
+    log.push({ name, servings: 1, cal: num('cfCal'), p: num('cfP'), c: num('cfC'), f: num('cfF') });
+    setTodaysLog(log);
+    render();
+    return;
+  }
+  if (e.target.id === 'cfAdd') {
+    const name = document.getElementById('cfName').value.trim();
+    if (!name) { alert('Give your food a name.'); return; }
+    const num = id => Math.max(0, Number(document.getElementById(id).value) || 0);
+    const list = getCustomFoods();
+    list.push({ name, cal: num('cfCal'), p: num('cfP'), c: num('cfC'), f: num('cfF'), unit: cfUnit, isCustom: true });
+    setCustomFoods(list);
+    render();
+    return;
+  }
+  const delCustom = e.target.closest('[data-delcustom]');
+  if (delCustom) {
+    const list = getCustomFoods();
+    list.splice(Number(delCustom.getAttribute('data-delcustom')), 1);
+    setCustomFoods(list);
+    query = '';
+    render();
+    return;
+  }
+  const unitBtn = e.target.closest('[data-unit]');
+  if (unitBtn) {
+    cfUnit = unitBtn.getAttribute('data-unit');
+    unitBtn.parentElement.querySelectorAll('[data-unit]').forEach(b => {
+      const active = b.getAttribute('data-unit') === cfUnit;
+      b.classList.toggle('btn-primary', active);
+      b.classList.toggle('btn-ghost', !active);
+    });
+    const L = cfLabels(cfUnit);
+    document.getElementById('cfHint').textContent = L.hint;
+    document.getElementById('cfCalLabel').textContent = L.cal;
+    document.getElementById('cfPLabel').textContent = L.p;
+    document.getElementById('cfCLabel').textContent = L.c;
+    document.getElementById('cfFLabel').textContent = L.f;
     return;
   }
 });
