@@ -519,10 +519,10 @@ body {
 const STORAGE_KEY = 'finance_standalone_v1';
 const ACTIVITY_MAX = 50;
 const NW_HISTORY_MAX = 500;
-const CURRENCIES = ['CHF', 'USD', 'EUR', 'GBP'];
+const CURRENCIES = ['CHF', 'USD', 'EUR', 'GBP', 'AUD'];
 const TAB_KEYS = ['net', 'subs', 'orders', 'wish'];
 const TAB_LABELS = { net: 'net worth', subs: 'subs', orders: 'orders', wish: 'wishlist' };
-const DEFAULT_RATES = { CHF: 1, USD: 1, EUR: 1, GBP: 1 };
+const DEFAULT_RATES = { CHF: 1, USD: 1, EUR: 1, GBP: 1, AUD: 1 };
 
 function genId(prefix) { return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
@@ -1254,7 +1254,7 @@ const EXTRACT_SYSTEM = [
   '- t: category — "bank","stocks","crypto","other" for statement/balance lines; "sub" for a recurring subscription; "order" for a receipt/purchase.',
   '- n: short name (account, holding, service, or merchant). No amounts inside the name.',
   '- a: numeric amount, no thousands separators or currency symbols (e.g. 1234.50).',
-  '- c: ISO currency inferred from symbols/text — "CHF","USD","EUR","GBP". Omit if unsure.',
+  '- c: ISO currency inferred from symbols/text — "CHF","USD","EUR","GBP","AUD". Omit if unsure.',
   '- p: billing period, subscriptions only — "monthly","yearly","weekly". Omit otherwise.',
   '',
   'Rules: one item per distinct line; skip totals that merely sum other lines; omit any field you are unsure of (never emit null or empty strings); if nothing is readable, return an empty items array.',
@@ -1282,7 +1282,7 @@ const EXTRACT_TOOL = {
             t: { type: 'string', enum: ['bank', 'stocks', 'crypto', 'other', 'sub', 'order'] },
             n: { type: 'string' },
             a: { type: 'number' },
-            c: { type: 'string', enum: ['CHF', 'USD', 'EUR', 'GBP'] },
+            c: { type: 'string', enum: ['CHF', 'USD', 'EUR', 'GBP', 'AUD'] },
             p: { type: 'string', enum: ['monthly', 'yearly', 'weekly'] },
           },
           required: ['t', 'n', 'a'],
@@ -1704,7 +1704,7 @@ fetch('https://open.er-api.com/v6/latest/CHF')
   .then(r => r.json())
   .then(data => {
     if (data && data.rates) {
-      rates = { CHF: 1, USD: data.rates.USD || 1, EUR: data.rates.EUR || 1, GBP: data.rates.GBP || 1 };
+      rates = { CHF: 1, USD: data.rates.USD || 1, EUR: data.rates.EUR || 1, GBP: data.rates.GBP || 1, AUD: data.rates.AUD || 1 };
       render();
       // Now that USD→CHF is known, refresh live holdings prices if a key is set.
       if (settings.finnhubKey && state.accounts.some(a => a.type === 'stocks' && a.ticker)) refreshStockPrices({ silent: true });
