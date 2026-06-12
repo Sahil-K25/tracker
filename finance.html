@@ -171,7 +171,7 @@ body {
 }
 
 /* Page shell */
-.page { position: relative; min-height: 100dvh; background: var(--bg); color: var(--fg); padding: var(--space-8) var(--space-5) var(--space-16); isolation: isolate; }
+.page { position: relative; min-height: 100dvh; background: var(--bg); color: var(--fg); padding: max(var(--space-8), env(safe-area-inset-top)) var(--space-5) var(--space-16); isolation: isolate; }
 .page::before {
   content:''; position: absolute; inset:0; pointer-events:none; z-index:-1;
   background:
