@@ -113,6 +113,8 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 .profileChip:hover { border-color: var(--brand-line); background: var(--brand-soft); }
 .profileChipNew { padding: 7px 14px; color: var(--brand); border-color: var(--brand-line); background: var(--brand-soft); }
 .profileAvatar { display:grid; place-items:center; width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); font-family: var(--font-display); font-weight: 700; font-size: 12px; }
+.iconBtn { display:inline-flex; align-items:center; justify-content:center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted-strong); font-size: 15px; line-height:1; cursor:pointer; flex-shrink:0; transition: border-color var(--duration) var(--ease-premium), background var(--duration) var(--ease-premium), color var(--duration) var(--ease-premium); }
+.iconBtn:hover { border-color: var(--brand-line); background: var(--brand-soft); color: var(--fg); }
 
 /* Daily reminders */
 .reminders { display:flex; align-items:center; flex-wrap:wrap; gap: var(--space-2); margin-bottom: var(--space-5); }
@@ -211,6 +213,17 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 .srcActions { display:flex; align-items:center; gap: var(--space-2); margin-top: var(--space-4); }
 .srcActions .spacer { margin-right:auto; }
 
+/* Layout editor — reorder + resize bento cards */
+.layoutList { display:flex; flex-direction:column; gap: var(--space-2); margin: var(--space-4) 0; max-height: 52vh; overflow-y:auto; }
+.layoutRow { display:flex; align-items:center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.layoutIcon { font-size: 18px; width: 26px; text-align:center; flex-shrink:0; }
+.layoutName { flex:1; font-family: var(--font-ui); font-weight: 600; font-size: 13px; min-width:0; }
+.layoutActions { display:flex; align-items:center; gap: 6px; flex-shrink:0; }
+.layoutBtn { appearance:none; background: var(--surface-2); border: 1px solid var(--border); color: var(--fg); font-family: var(--font-mono); font-size: 12px; font-weight: 700; width: 32px; height: 32px; border-radius: var(--radius-sm); cursor:pointer; display:grid; place-items:center; transition: border-color var(--duration) var(--ease-premium), background var(--duration) var(--ease-premium); }
+.layoutBtn:hover:not(:disabled) { border-color: var(--brand-line); background: var(--brand-soft); }
+.layoutBtn:disabled { opacity: 0.3; cursor:not-allowed; }
+.layoutSizeBtn { width: 38px; color: var(--brand); }
+
 /* ============================================================
  * Live vitals ticker — a scrolling marquee of every metric the
  * suite currently knows (vitals + finance/water/supplements).
@@ -259,16 +272,38 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
  * Apps in the suite — one bento card each.
  * ============================================================ */
 const APPS = [
-  { file: 'finance.html',     name: 'Finance',     tag: 'Net worth · subs · orders · wishlist', icon: '💰', wide: true },
   { file: 'gym.html',         name: 'Gym',         tag: 'Progressive overload coach',           icon: '🏋️', wide: true },
-  { file: 'supplements.html', name: 'Supplements', tag: 'Your stack + smart recommendations',   icon: '💊' },
-  { file: 'whoop.html',       name: 'Fitness Band', tag: 'Whoop · Fitbit · Apple Watch sync',      icon: '🔋' },
-  { file: 'water.html',       name: 'Water',       tag: 'Daily hydration target',                icon: '💧' },
-  { file: 'creator.html',     name: 'Creator',     tag: 'Schedule · accounts · analytics',       icon: '🎬' },
   { file: 'goals.html',       name: 'Goals',       tag: 'Goals & streaks',                       icon: '🎯' },
-  { file: 'progress.html',    name: 'Progress',    tag: 'Photos & measurements',                 icon: '📈' },
+  { file: 'finance.html',     name: 'Finance',     tag: 'Net worth · subs · orders · wishlist', icon: '💰', wide: true },
+  { file: 'supplements.html', name: 'Supplements', tag: 'Your stack + smart recommendations',   icon: '💊' },
+  { file: 'water.html',       name: 'Water',       tag: 'Daily hydration target',                icon: '💧' },
   { file: 'macros.html',      name: 'Macros',      tag: 'Protein · carbs · fat',                 icon: '🍳' },
+  { file: 'whoop.html',       name: 'Fitness Band', tag: 'Whoop · Fitbit · Apple Watch sync',      icon: '🔋' },
+  { file: 'progress.html',    name: 'Progress',    tag: 'Photos & measurements',                 icon: '📈' },
+  { file: 'creator.html',     name: 'Creator',     tag: 'Schedule · accounts · analytics',       icon: '🎬' },
 ];
+
+/* ============================================================
+ * Custom layout — user-editable order + sizing (1x/2x) for the
+ * bento cards above, persisted locally and merged with APPS so
+ * newly-added apps still show up even if a layout was saved.
+ * ============================================================ */
+const LAYOUT_KEY = 'patron_layout_v1';
+function loadLayout(){ try { const r = localStorage.getItem(LAYOUT_KEY); const d = r ? JSON.parse(r) : null; return Array.isArray(d) ? d : null; } catch(e){ return null; } }
+function saveLayout(layout){ try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch(e){} }
+function getOrderedApps(){
+  const layout = loadLayout();
+  if (!layout) return APPS.map(a => Object.assign({}, a));
+  const byFile = {};
+  APPS.forEach(a => { byFile[a.file] = a; });
+  const out = [];
+  layout.forEach(l => {
+    const a = byFile[l.file];
+    if (a) { out.push(Object.assign({}, a, { wide: !!l.wide })); delete byFile[l.file]; }
+  });
+  APPS.forEach(a => { if (byFile[a.file]) out.push(Object.assign({}, a)); });
+  return out;
+}
 
 /* ============================================================
  * Theme (shared across the whole suite via patron_theme)
@@ -372,7 +407,7 @@ function brandName(){ return firstName() || 'Sahil'; }
 /* ============================================================
  * UI state
  * ============================================================ */
-const ui = { modalOpen: false, draftSource: 'manual', profileOpen: false, profileDraft: null };
+const ui = { modalOpen: false, draftSource: 'manual', profileOpen: false, profileDraft: null, layoutOpen: false, layoutDraft: null };
 
 /* ============================================================
  * Views
@@ -384,7 +419,7 @@ function headerHtml(){
     ? '<button type="button" class="profileChip" data-action="open-profile" title="Edit your profile"><span class="profileAvatar">' + esc((name || '·').charAt(0).toUpperCase()) + '</span>' + esc(name || 'Profile') + '</button>'
     : '<button type="button" class="profileChip profileChipNew" data-action="open-profile">Set up profile</button>';
   return '<header class="header"><div><h1 class="title">' + esc(brandName()) + '</h1><p class="subtitle">' + greeting + '</p></div>'
-    + '<div class="headerControls">' + themeSegHtml() + chip + '</div></header>';
+    + '<div class="headerControls">' + themeSegHtml() + '<button type="button" class="iconBtn" data-action="open-layout" title="Edit dashboard layout" aria-label="Edit dashboard layout">⚙</button>' + chip + '</div></header>';
 }
 
 function vitalsTileHtml(){
@@ -521,7 +556,7 @@ function remindersHtml(){
 function render(){
   document.title = brandName() + ' · dashboard';
   document.getElementById('app').innerHTML =
-    headerHtml() + tickerHtml() + remindersHtml() + '<div class="bento">' + vitalsTileHtml() + APPS.map(cardHtml).join('') + '</div>';
+    headerHtml() + tickerHtml() + remindersHtml() + '<div class="bento">' + vitalsTileHtml() + getOrderedApps().map(cardHtml).join('') + '</div>';
   renderModal();
 }
 
@@ -530,6 +565,7 @@ function render(){
  * ============================================================ */
 function renderModal(){
   const root = document.getElementById('modalRoot');
+  if (ui.layoutOpen) { root.innerHTML = layoutModalHtml(); return; }
   if (ui.profileOpen) { root.innerHTML = profileModalHtml(); return; }
   if (!ui.modalOpen) { root.innerHTML = ''; return; }
   const src = ui.draftSource;
@@ -690,6 +726,64 @@ function saveProfile(){
   render();
 }
 
+/* ============================================================
+ * Layout editor — reorder bento cards and pick 1x/2x sizing,
+ * persisted to LAYOUT_KEY and merged with APPS on render.
+ * ============================================================ */
+function openLayoutEditor(){
+  ui.layoutDraft = getOrderedApps().map(a => ({ file: a.file, wide: !!a.wide }));
+  ui.layoutOpen = true;
+  ui.modalOpen = false;
+  ui.profileOpen = false;
+  renderModal();
+}
+function moveLayoutItem(index, dir){
+  const draft = ui.layoutDraft;
+  const j = index + dir;
+  if (!draft || j < 0 || j >= draft.length) return;
+  const tmp = draft[index]; draft[index] = draft[j]; draft[j] = tmp;
+  renderModal();
+}
+function toggleLayoutSize(index){
+  const draft = ui.layoutDraft;
+  if (!draft || !draft[index]) return;
+  draft[index].wide = !draft[index].wide;
+  renderModal();
+}
+function saveLayoutEditor(){
+  if (ui.layoutDraft) saveLayout(ui.layoutDraft);
+  ui.layoutOpen = false;
+  render();
+}
+function resetLayoutEditor(){
+  ui.layoutDraft = APPS.map(a => ({ file: a.file, wide: !!a.wide }));
+  renderModal();
+}
+function layoutModalHtml(){
+  const draft = ui.layoutDraft || [];
+  const byFile = {};
+  APPS.forEach(a => { byFile[a.file] = a; });
+  const rows = draft.map((item, i) => {
+    const a = byFile[item.file] || {};
+    return '<div class="layoutRow">'
+      + '<span class="layoutIcon" aria-hidden>' + (a.icon || '') + '</span>'
+      + '<span class="layoutName">' + esc(a.name || item.file) + '</span>'
+      + '<div class="layoutActions">'
+      + '<button type="button" class="layoutBtn layoutSizeBtn" data-action="layout-size" data-index="' + i + '" title="Toggle card size">' + (item.wide ? '2×' : '1×') + '</button>'
+      + '<button type="button" class="layoutBtn" data-action="layout-up" data-index="' + i + '" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+      + '<button type="button" class="layoutBtn" data-action="layout-down" data-index="' + i + '" aria-label="Move down"' + (i === draft.length - 1 ? ' disabled' : '') + '>↓</button>'
+      + '</div></div>';
+  }).join('');
+  return '<div class="overlay" data-action="close-layout"><div class="panel" data-stop="1">'
+    + '<div class="panelHead"><div><div class="panelEyebrow">Dashboard</div><h2 class="panelTitle">Edit layout</h2></div><button type="button" class="panelClose" data-action="close-layout">×</button></div>'
+    + '<p class="panelNote">Reorder cards with ↑ / ↓ and set each to <strong>1×</strong> (single) or <strong>2×</strong> (wide). Saved on this device.</p>'
+    + '<div class="layoutList">' + rows + '</div>'
+    + '<div class="panelActions"><button type="button" class="btn btn-link spacer" data-action="layout-reset">reset to default</button>'
+    + '<button type="button" class="btn btn-ghost" data-action="close-layout">Cancel</button>'
+    + '<button type="button" class="btn btn-primary" data-action="layout-save">Save layout</button></div>'
+    + '</div></div>';
+}
+
 document.addEventListener('click', e => {
   const stop = e.target.closest('[data-stop]');
   const btn = e.target.closest('[data-action]');
@@ -698,6 +792,13 @@ document.addEventListener('click', e => {
   if (action === 'theme') { applyTheme(btn.getAttribute('data-theme')); return; }
   if (action === 'open-vitals') { openVitals(); return; }
   if (action === 'open-profile') { openProfile(); return; }
+  if (action === 'open-layout') { openLayoutEditor(); return; }
+  if (action === 'close-layout') { if (!stop || btn.tagName === 'BUTTON') { ui.layoutOpen = false; renderModal(); } return; }
+  if (action === 'layout-up') { moveLayoutItem(Number(btn.getAttribute('data-index')), -1); return; }
+  if (action === 'layout-down') { moveLayoutItem(Number(btn.getAttribute('data-index')), 1); return; }
+  if (action === 'layout-size') { toggleLayoutSize(Number(btn.getAttribute('data-index'))); return; }
+  if (action === 'layout-reset') { resetLayoutEditor(); return; }
+  if (action === 'layout-save') { saveLayoutEditor(); return; }
   if (action === 'close-profile') { if (!stop || btn.tagName === 'BUTTON') { ui.profileOpen = false; renderModal(); } return; }
   if (action === 'save-profile') { saveProfile(); return; }
   if (action === 'close-vitals') { if (!stop || btn.tagName === 'BUTTON') { ui.modalOpen = false; renderModal(); } return; }
@@ -751,6 +852,7 @@ document.addEventListener('change', e => {
 window.addEventListener('storage', e => {
   if (e.key === 'patron_theme' && e.newValue) { applyTheme(e.newValue); return; }
   if (e.key === HEALTH_KEY || e.key === LEGACY_WHOOP_KEY || e.key === null) { health = loadHealth(); render(); }
+  if (e.key === LAYOUT_KEY) { render(); }
 });
 
 if (!profile) { ui.profileDraft = draftFromProfile(); ui.profileOpen = true; } // first run → onboarding prompt (init draft so typing is captured)
