@@ -599,15 +599,17 @@ function waterRemaining(){
     return { remaining, label };
   } catch(e){ return null; }
 }
-// Remaining calories for today, vs the goal set on the macros page (defaults to 2000).
-function macrosRemaining(){
+// Remaining calories & protein for today, vs the goals set on the macros page (defaults: 2000 kcal / 150g protein).
+function macrosStatus(){
   try {
     const s = lsGet('macros_standalone_v1');
     if (!s) return null;
     const goalCal = s.goalCal != null ? s.goalCal : 2000;
+    const goalProtein = s.goalProtein != null ? s.goalProtein : 150;
     const day = s[localDateKey()];
-    const eaten = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.cal) || 0), 0) : 0;
-    return Math.max(0, Math.round(goalCal - eaten));
+    const eatenCal = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.cal) || 0), 0) : 0;
+    const eatenProtein = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.p) || 0), 0) : 0;
+    return { cal: Math.max(0, Math.round(goalCal - eatenCal)), protein: Math.max(0, Math.round(goalProtein - eatenProtein)) };
   } catch(e){ return null; }
 }
 function remindersHtml(){
@@ -619,9 +621,14 @@ function remindersHtml(){
   const water = waterRemaining();
   if (water === null) items.push({ file: 'water.html', icon: '💧', text: 'Log your water' });
   else if (water.remaining > 0) items.push({ file: 'water.html', icon: '💧', text: 'Drink ' + water.remaining + ' more ' + water.label });
-  const macros = macrosRemaining();
+  const macros = macrosStatus();
   if (macros === null) items.push({ file: 'macros.html', icon: '🍳', text: 'Log your macros' });
-  else if (macros > 0) items.push({ file: 'macros.html', icon: '🍳', text: 'Eat ' + macros + ' more kcal' });
+  else {
+    const parts = [];
+    if (macros.cal > 0) parts.push(macros.cal + ' kcal left');
+    if (macros.protein > 0) parts.push(macros.protein + 'g protein left');
+    if (parts.length) items.push({ file: 'macros.html', icon: '🍳', text: parts.join(' · ') });
+  }
   if (!items.length) return '';
   return '<div class="reminders" role="status"><span class="remindersLabel">Today</span>'
     + items.map(r => '<a class="reminderChip" href="' + r.file + '"><span class="reminderDot"></span><span aria-hidden>' + r.icon + '</span> ' + r.text + ' <span class="reminderGo" aria-hidden>→</span></a>').join('')

@@ -119,6 +119,8 @@ function todaysLog(){ return store[todayKey()] || []; }
 function setTodaysLog(list){ store[todayKey()] = list; saveAll(store); }
 function goalCal(){ return store.goalCal != null ? store.goalCal : 2000; } // daily calorie target (editable)
 function setGoalCal(n){ store.goalCal = n; saveAll(store); }
+function goalProtein(){ return store.goalProtein != null ? store.goalProtein : 150; } // daily protein target in g (editable)
+function setGoalProtein(n){ store.goalProtein = n; saveAll(store); }
 
 /* ---- custom foods/meals (user-defined, remembered macros per 100g) ---- */
 function getCustomFoods(){ return Array.isArray(store.customFoods) ? store.customFoods : []; }
@@ -161,24 +163,29 @@ function totals(){
 // can refresh just these two pieces on every keystroke (see input handler
 // below) instead of re-rendering the whole page and losing the caret.
 const calCell = (cls, n, l) => '<div class="calCell ' + cls + '"><span class="n">' + round(n) + '</span><span class="l">' + l + '</span></div>';
-function calMathInner(t, goal){
-  const remaining = goal - t.cal;
+function goalMathInner(value, goal){
+  const remaining = goal - value;
   const over = remaining < 0;
   return calCell('', goal, 'goal')
     + '<span class="calOp">−</span>'
-    + calCell('', t.cal, 'food')
+    + calCell('', value, 'food')
     + '<span class="calOp">=</span>'
     + calCell('remain' + (over ? ' over' : ''), Math.abs(remaining), over ? 'over' : 'remaining');
 }
-function barInner(t, goal){
-  const over = (goal - t.cal) < 0;
-  const pct = Math.min(100, goal > 0 ? (t.cal / goal) * 100 : 0);
+function goalBarInner(value, goal){
+  const over = (goal - value) < 0;
+  const pct = Math.min(100, goal > 0 ? (value / goal) * 100 : 0);
   return '<div class="barFill' + (over ? ' over' : '') + '" style="width:' + pct + '%"></div>';
 }
+function calMathInner(t, goal){ return goalMathInner(t.cal, goal); }
+function barInner(t, goal){ return goalBarInner(t.cal, goal); }
+function proteinMathInner(t, goal){ return goalMathInner(t.p, goal); }
+function proteinBarInner(t, goal){ return goalBarInner(t.p, goal); }
 
 function summaryHtml(){
   const t = totals();
   const goal = goalCal();
+  const goalP = goalProtein();
 
   const head = '<div class="calHead">'
     + '<div class="calMath" id="calMath">' + calMathInner(t, goal) + '</div>'
@@ -187,10 +194,18 @@ function summaryHtml(){
     + '</div>';
   const bar = '<div class="bar" id="calBar">' + barInner(t, goal) + '</div>';
 
+  const proteinHead = '<div class="calHead" style="margin-top:var(--space-4)">'
+    + '<div class="calMath" id="proteinMath">' + proteinMathInner(t, goalP) + '</div>'
+    + '<div class="goalEdit"><span class="calCell"><span class="l">protein goal (g)</span></span>'
+    + '<input class="fieldInput" id="goalProtein" type="number" min="0" step="5" value="' + goalP + '" /></div>'
+    + '</div>';
+  const proteinBar = '<div class="bar" id="proteinBar">' + proteinBarInner(t, goalP) + '</div>';
+
   const box = (accent, val, unit, label) =>
     '<div class="macroBox" data-accent="' + accent + '"><span class="macroVal">' + round(val) + (unit||'') + '</span><span class="macroLabel">' + label + '</span></div>';
   return '<section class="card"><span class="cardName">Today</span>'
     + head + bar
+    + proteinHead + proteinBar
     + '<div class="macroGrid" style="margin-top:var(--space-4)">'
     + box('p', t.p, 'g', 'protein')
     + box('c', t.c, 'g', 'carbs')
@@ -312,6 +327,14 @@ document.addEventListener('input', e => {
     const goal = goalCal();
     document.getElementById('calMath').innerHTML = calMathInner(t, goal);
     document.getElementById('calBar').innerHTML = barInner(t, goal);
+  }
+  if (e.target.id === 'goalProtein') {
+    const n = Number(e.target.value);
+    setGoalProtein(isFinite(n) && n >= 0 ? n : 0);
+    const t = totals();
+    const goalP = goalProtein();
+    document.getElementById('proteinMath').innerHTML = proteinMathInner(t, goalP);
+    document.getElementById('proteinBar').innerHTML = proteinBarInner(t, goalP);
   }
 });
 
