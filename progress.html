@@ -68,9 +68,6 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-inter),-apple-s
 .headerRow{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
 .title{font-family:var(--font-serif);font-style:normal;font-size:var(--text-3xl);font-weight:600;line-height:1.05;margin:0}
 .subtitle{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0}
-.unitSeg{display:inline-flex;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px;gap:2px}
-.unitBtn{appearance:none;background:transparent;border:0;color:var(--muted);font-family:inherit;font-size:12px;font-weight:500;padding:5px 14px;border-radius:var(--radius-pill);cursor:pointer;transition:background var(--duration) var(--ease-premium),color var(--duration) var(--ease-premium)}
-.unitBtnActive{background:var(--mint);color:#042a1c}
 
 /* Hero card */
 .heroCard{padding:var(--space-5);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:var(--space-4)}
@@ -149,17 +146,16 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-inter),-apple-s
 
 /* Composition */
 .compCard{padding:var(--space-5);background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg)}
-.compPhaseWord{font-family:var(--font-serif);font-style:italic;font-size:34px;line-height:1}
-.compPhaseSub{font-size:14px;color:var(--muted-strong);margin:var(--space-3) 0 var(--space-4);line-height:1.45}
-.compPillRow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--space-4)}
-.compPill{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:var(--radius-pill);background:rgba(255,255,255,.04);border:1px solid var(--border)}
-.compPillLabel{font-family:var(--font-mono),ui-monospace,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.compPillValue{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
-.compPillGood{background:color-mix(in srgb,var(--brand) 8%,transparent);border-color:color-mix(in srgb,var(--brand) 22%,transparent)}
-.compPillGood .compPillValue{color:var(--mint)}
-.compPillBad{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.22)}
-.compPillBad .compPillValue{color:var(--amber)}
-.compPillNeutral .compPillValue{color:var(--muted-strong)}
+.compPhaseSub{font-size:14px;color:var(--muted-strong);margin:0;line-height:1.45}
+.compHeadline{font-size:15px;font-weight:600;line-height:1.35;margin:0 0 10px}
+.compHeadline.good{color:var(--pos)}
+.compHeadline.warn{color:var(--warn)}
+.compHeadline.bad{color:var(--neg)}
+.compBars{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:8px;background:var(--surface-2)}
+.compBar{height:100%}
+.compBar.muscle{background:var(--pos)}
+.compBar.fat{background:var(--warn)}
+.compFoot{font-size:11.5px;line-height:1.45;color:var(--muted-strong);font-variant-numeric:tabular-nums;margin:0 0 8px}
 .compCaveat{font-size:11px;color:var(--muted);font-style:italic;margin:0}
 
 /* Photos */
@@ -243,9 +239,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-inter),-apple-s
 /* ===================== Helpers ===================== */
 function getLocalDateKey(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function parseKey(k){const p=k.split('-').map(Number);return new Date(p[0],(p[1]||1)-1,p[2]||1);}
-function kgToDisplay(kg,u){return u==='lb'?kg*2.20462:kg;}
-function displayToKg(v,u){return u==='lb'?v/2.20462:v;}
-function fmtDisp(kg,u){return kgToDisplay(kg,u).toFixed(1);}
+function fmt1(n){return Number(n).toFixed(1);}
+function estimate1RM(w,r){return r<2?w:w*(1+r/30);}
 function photoDate(k){const d=parseKey(k);const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return m[d.getMonth()]+' '+d.getDate();}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function brandName(){try{var p=JSON.parse(localStorage.getItem('patron_profile_v1')||'null');return (p&&p.name)?String(p.name).trim().split(/\s+/)[0]:'Sahil';}catch(e){return 'Sahil';}}
@@ -259,82 +254,70 @@ function compress(dataUrl,maxDim,q){return new Promise(res=>{const img=new Image
 
 const CHART_WINDOW=30,AVG_WINDOW=7;
 
-/* ===================== Static demo data (workout-fed in hosted app) ===================== */
-const LIFTS=[
-  {id:'l1',exerciseName:'Barbell bench',kind:'pr_reps',currentReps:7,previousReps:5,currentWeightKg:85,previousWeightKg:85},
-  {id:'l2',exerciseName:'Barbell bench',kind:'pr_weight',currentWeightKg:85,previousWeightKg:80,currentReps:5,previousReps:5},
-  {id:'l3',exerciseName:'Back squat',kind:'pr_weight',currentWeightKg:120,previousWeightKg:115,currentReps:5,previousReps:5},
-  {id:'l4',exerciseName:'Deadlift',kind:'pr_reps',currentReps:6,previousReps:4,currentWeightKg:140,previousWeightKg:140},
-  {id:'l5',exerciseName:'Overhead press',kind:'regress_weight',currentWeightKg:50,previousWeightKg:55,currentReps:5,previousReps:5},
-];
-const COMPOSITION={phase:'recomp',weightSlopeKgPerWeek:0,volumeTrendPct:143,estimatedLeanKgPerWeek:null,estimatedFatKgPerWeek:null,windowDays:28,confidence:30};
-const PHASE_LABEL={recomp:'Recomping',bulking:'Bulking',fat_gain:'Fat gain',cutting:'Cutting',losing:'Losing both',holding:'Holding',insufficient:'Calibrating'};
-const PHASE_SUB={recomp:'lifts up, weight steady, likely swapping fat for muscle',bulking:'weight up, lifts up. the gains are mostly muscle',fat_gain:'weight up, lifts flat. most of the gain is fat',cutting:'weight down, lifts preserved. fat loss with muscle held',losing:'weight down, lifts down. losing both',holding:'weight + lifts both steady. maintenance phase',insufficient:'log a few more weeks of weight + training to unlock this'};
+/* ===================== Gym data (shared with gym.html) ===================== */
+const GYM_LS='po_coach_v1';
+function loadGymState(){try{const r=localStorage.getItem(GYM_LS);return r?JSON.parse(r):null;}catch{return null;}}
+const gymState=loadGymState();
+function gymUnit(){return (gymState&&gymState.units)||'kg';}
+const COMPOSITION_CONFIG={enabled:true,yearsTraining:1,windowDays:30};
 
 /* ===================== State ===================== */
-const LS='progress_standalone_v1',PHOTOS='progress_standalone_photos_v1';
-function seed(){
-  // 3 entries → "3 entries · last 3 days", axis 70.5–72.4, 71.2 today, ↓0.7 / 7d
-  const e=[];const add=(off,kg)=>{const d=new Date();d.setDate(d.getDate()-off);e.push({dateKey:getLocalDateKey(d),weightKg:kg});};
-  add(7,71.9);add(3,71.0);add(0,71.2);
-  return {units:'kg',entries:e};
-}
-function load(){try{const r=localStorage.getItem(LS);if(!r)return seed();const p=JSON.parse(r);return {units:p.units||'kg',entries:Array.isArray(p.entries)?p.entries:seed().entries};}catch{return seed();}}
-function save(){try{localStorage.setItem(LS,JSON.stringify({units:state.units,entries:state.entries}));}catch{} if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('patron-progress',{units:state.units,entries:state.entries});}
+const WT_KEY='po_coach_weights',PHOTOS='progress_standalone_photos_v1';
+function wtLoad(){try{const r=localStorage.getItem(WT_KEY);const arr=r?JSON.parse(r):[];return Array.isArray(arr)?arr.slice().sort((a,b)=>a.dateKey.localeCompare(b.dateKey)):[];}catch{return [];}}
+function wtSave(){try{localStorage.setItem(WT_KEY,JSON.stringify(wtEntries));}catch{}}
 function loadPhotos(){try{const r=localStorage.getItem(PHOTOS);return r?JSON.parse(r):[];}catch{return [];}}
 function savePhotos(){try{localStorage.setItem(PHOTOS,JSON.stringify(photos));}catch{} if(window.PatronDB&&PatronDB.isCloud())PatronDB.set('patron-progress-photos',photos);}
-let state=load();
+let wtEntries=wtLoad();
 let photos=loadPhotos();
 const ui={draft:'',editing:false,error:null,photosOpen:false,viewerId:null,compareId:null,confirmDelete:false};
 
 /* Derived */
-function sortedEntries(){return state.entries.slice().sort((a,b)=>a.dateKey.localeCompare(b.dateKey));}
+function sortedEntries(){return wtEntries.slice().sort((a,b)=>a.dateKey.localeCompare(b.dateKey));}
 function latest(){const s=sortedEntries();return s[s.length-1]||null;}
-function todayEntry(){return state.entries.find(e=>e.dateKey===getLocalDateKey())||null;}
+function todayEntry(){return wtEntries.find(e=>e.dateKey===getLocalDateKey())||null;}
 
 /* Actions */
 function saveWeight(){
   const parsed=parseFloat(ui.draft);
   if(!isFinite(parsed)||parsed<=0){ui.error='enter a valid weight';render();return;}
-  const kg=displayToKg(parsed,state.units);const k=getLocalDateKey();
-  state.entries=state.entries.filter(e=>e.dateKey!==k).concat([{dateKey:k,weightKg:kg}]);
-  ui.draft='';ui.editing=false;ui.error=null;save();render();
+  const k=getLocalDateKey();
+  wtEntries=wtEntries.filter(e=>e.dateKey!==k).concat([{dateKey:k,weight:parsed}]);
+  ui.draft='';ui.editing=false;ui.error=null;wtSave();render();
 }
-function startEdit(){ui.editing=true;ui.error=null;const t=todayEntry();ui.draft=t?fmtDisp(t.weightKg,state.units):'';render();}
-function changeUnits(u){if(ui.draft){const p=parseFloat(ui.draft);if(isFinite(p)){const kg=displayToKg(p,state.units);ui.draft=kgToDisplay(kg,u).toFixed(1);}}state.units=u;save();render();}
+function startEdit(){ui.editing=true;ui.error=null;const t=todayEntry();ui.draft=t?fmt1(t.weight):'';render();}
 
 /* ===================== Render: hero ===================== */
 function chartData(){
   const recent=sortedEntries().slice(-CHART_WINDOW);
   if(recent.length<2)return null;
-  const kgs=recent.map(e=>e.weightKg),min=Math.min.apply(null,kgs),max=Math.max.apply(null,kgs);
+  const ws=recent.map(e=>e.weight),min=Math.min.apply(null,ws),max=Math.max.apply(null,ws);
   const pad=Math.max((max-min)*0.15,0.5),yMin=min-pad,yMax=max+pad;
   const W=320,H=130,xL=8,xR=W-8,yT=20,yB=H-20,xRange=xR-xL,yRange=yB-yT;
   const xFor=i=>recent.length===1?xR:xL+(i/(recent.length-1))*xRange;
-  const yFor=kg=>yB-((kg-yMin)/(yMax-yMin))*yRange;
-  const points=recent.map((e,i)=>({x:xFor(i),y:yFor(e.weightKg)}));
-  const avgPoints=recent.map((_,i)=>{const st=Math.max(0,i-(AVG_WINDOW-1));const win=recent.slice(st,i+1);const a=win.reduce((s,p)=>s+p.weightKg,0)/win.length;return {x:xFor(i),y:yFor(a)};});
-  return {W,H,yB,yMin:kgToDisplay(yMin,state.units),yMax:kgToDisplay(yMax,state.units),
+  const yFor=w=>yB-((w-yMin)/(yMax-yMin))*yRange;
+  const points=recent.map((e,i)=>({x:xFor(i),y:yFor(e.weight)}));
+  const avgPoints=recent.map((_,i)=>{const st=Math.max(0,i-(AVG_WINDOW-1));const win=recent.slice(st,i+1);const a=win.reduce((s,p)=>s+p.weight,0)/win.length;return {x:xFor(i),y:yFor(a)};});
+  return {W,H,yB,yMin,yMax,
     linePath:smoothPath(points),areaPath:smoothPath(points)+' L '+points[points.length-1].x.toFixed(2)+' '+yB+' L '+points[0].x.toFixed(2)+' '+yB+' Z',
-    avgPath:smoothPath(avgPoints),points,recentCount:recent.length,totalCount:state.entries.length};
+    avgPath:smoothPath(avgPoints),points,recentCount:recent.length,totalCount:wtEntries.length};
 }
 function delta(){
   const s=sortedEntries(),l=latest();if(s.length<2||!l)return null;
   const cutoff=parseKey(l.dateKey);cutoff.setDate(cutoff.getDate()-7);
   const base=s.find(e=>parseKey(e.dateKey)>=cutoff)||s[0];
-  const diff=l.weightKg-base.weightKg;
-  if(Math.abs(diff)<0.05)return {diffKg:0,dir:'flat'};
-  return {diffKg:diff,dir:diff>0?'up':'down'};
+  const diff=l.weight-base.weight;
+  if(Math.abs(diff)<0.05)return {diff:0,dir:'flat'};
+  return {diff,dir:diff>0?'up':'down'};
 }
 function streak(){
-  if(!state.entries.length)return 0;const set=new Set(state.entries.map(e=>e.dateKey));const cur=new Date();
+  if(!wtEntries.length)return 0;const set=new Set(wtEntries.map(e=>e.dateKey));const cur=new Date();
   if(!set.has(getLocalDateKey(cur)))cur.setDate(cur.getDate()-1);
   let c=0;while(set.has(getLocalDateKey(cur))){c++;cur.setDate(cur.getDate()-1);}return c;
 }
 function heroHtml(){
-  const l=latest(),u=state.units,d=delta(),st=streak(),cd=chartData(),te=todayEntry();
+  const l=latest(),u=gymUnit(),d=delta(),st=streak(),cd=chartData(),te=todayEntry();
   let chips='';
-  if(d&&d.dir!=='flat')chips+='<span class="deltaChip '+(d.dir==='down'?'down':'up')+'">'+(d.dir==='down'?'↓':'↑')+' '+Math.abs(kgToDisplay(d.diffKg,u)).toFixed(1)+' '+u+'<span class="chipWindow">· 7d</span></span>';
+  if(d&&d.dir!=='flat')chips+='<span class="deltaChip '+(d.dir==='down'?'down':'up')+'">'+(d.dir==='down'?'↓':'↑')+' '+Math.abs(d.diff).toFixed(1)+' '+u+'<span class="chipWindow">· 7d</span></span>';
   if(st>=2)chips+='<span class="streakChip"><span class="streakDot"></span>'+st+' day streak</span>';
   let chart='';
   if(cd){
@@ -348,55 +331,146 @@ function heroHtml(){
   }
   let foot;
   if(te&&!ui.editing){
-    foot='<div class="locked"><div class="lockedLeft"><span class="lockedCheck">✓</span><div><div class="lockedLabel">logged today</div><div class="lockedValue">'+fmtDisp(te.weightKg,u)+' '+u+'</div></div></div><button class="editBtn" data-act="edit">edit</button></div>';
+    foot='<div class="locked"><div class="lockedLeft"><span class="lockedCheck">✓</span><div><div class="lockedLabel">logged today</div><div class="lockedValue">'+fmt1(te.weight)+' '+u+'</div></div></div><button class="editBtn" data-act="edit">edit</button></div>';
   }else{
     foot='<form class="inputRow" data-act="saveForm"><input id="wInput" class="input" type="number" step="0.1" inputmode="decimal" value="'+esc(ui.draft)+'" placeholder="weight ('+u+')" autocomplete="off"><span class="inputUnit">'+u+'</span><button type="submit" class="saveBtn">'+(te?'update':'save')+'</button></form>';
   }
-  return '<section class="heroCard"><div class="heroNumRow"><span class="heroNum">'+(l?fmtDisp(l.weightKg,u):'—')+'</span><span class="heroUnit">'+u+'</span></div>'
+  return '<section class="heroCard"><div class="heroNumRow"><span class="heroNum">'+(l?fmt1(l.weight):'—')+'</span><span class="heroUnit">'+u+'</span></div>'
     +(chips?'<div class="chipRow">'+chips+'</div>':'')
-    +(!state.entries.length?'<div class="heroEmpty">Log your first weight to start tracking.</div>':'')
+    +(!wtEntries.length?'<div class="heroEmpty">Log your first weight to start tracking.</div>':'')
     +chart+foot+(ui.error?'<p class="errorText">'+esc(ui.error)+'</p>':'')+'</section>';
 }
 
 /* ===================== Render: lifts + composition ===================== */
+function computeLifts(){
+  if(!gymState||!Array.isArray(gymState.exercises))return [];
+  const cutoff=Date.now()-90*86400000;
+  const out=[];
+  gymState.exercises.forEach(ex=>{
+    const logs=(gymState.logs&&gymState.logs[ex.id])||[];
+    if(logs.length<2)return;
+    const last=logs[logs.length-1],prev=logs[logs.length-2];
+    if(new Date(last.date).getTime()<cutoff)return;
+    const base={exerciseName:ex.name,bw:!!ex.bw,currentWeight:last.weight,previousWeight:prev.weight,currentReps:last.reps,previousReps:prev.reps};
+    if(ex.bw){
+      if(last.reps>prev.reps)out.push(Object.assign({kind:'pr_reps'},base));
+      else if(last.reps<prev.reps)out.push(Object.assign({kind:'regress_reps'},base));
+    }else{
+      if(last.weight>prev.weight)out.push(Object.assign({kind:'pr_weight'},base));
+      else if(last.weight<prev.weight)out.push(Object.assign({kind:'regress_weight'},base));
+      else if(last.reps>prev.reps)out.push(Object.assign({kind:'pr_reps'},base));
+      else if(last.reps<prev.reps)out.push(Object.assign({kind:'regress_reps'},base));
+    }
+  });
+  return out;
+}
 function liftItem(s){
-  const u=state.units,isPR=s.kind==='pr_weight'||s.kind==='pr_reps',arrow=isPR?'↑':'↓';
+  const u=gymUnit(),isPR=s.kind.indexOf('pr_')===0,arrow=isPR?'↑':'↓';
   let body;
-  if(s.kind==='pr_reps')body=s.previousReps+' → <strong>'+s.currentReps+'</strong> reps<span class="tickerAt"> @ '+fmtDisp(s.currentWeightKg,u)+' '+u+'</span>';
-  else body=fmtDisp(s.previousWeightKg,u)+' → <strong>'+fmtDisp(s.currentWeightKg,u)+'</strong> '+u;
+  if(s.kind==='pr_reps'||s.kind==='regress_reps')body=s.previousReps+' → <strong>'+s.currentReps+'</strong> reps'+(s.bw?'':'<span class="tickerAt"> @ '+fmt1(s.currentWeight)+' '+u+'</span>');
+  else body=fmt1(s.previousWeight)+' → <strong>'+fmt1(s.currentWeight)+'</strong> '+u;
   return '<span class="tickerItem '+(isPR?'tickerItemUp':'tickerItemDown')+'"><span class="tickerArrow">'+arrow+'</span><span class="tickerName">'+esc(s.exerciseName)+'</span><span class="tickerSep">·</span><span class="tickerBody">'+body+'</span></span>';
 }
 function trainingHtml(){
-  if(!LIFTS.length)return '';
-  const items=LIFTS.map(s=>liftItem(s)).join('');
+  const lifts=computeLifts();
+  if(!lifts.length)return '<section class="section"><div class="sectionEyebrow">training · last 90 days</div><p class="noteLine">No new PRs logged on the Gym page in the last 90 days.</p></section>';
+  const items=lifts.map(s=>liftItem(s)).join('');
   return '<section class="section"><div class="sectionEyebrow">training · last 90 days</div>'
     +'<div class="ticker"><div class="tickerBadge"><span class="tickerBadgeDot"></span>lifts</div><div class="tickerViewport"><div class="tickerTrack">'+items+items+'</div></div></div></section>';
 }
+function computeComposition(){
+  if(!COMPOSITION_CONFIG.enabled)return null;
+  const windowDays=COMPOSITION_CONFIG.windowDays||30;
+  const entries=sortedEntries();
+  if(entries.length<2)return null;
+
+  const now=parseKey(entries[entries.length-1].dateKey);
+  const start=new Date(now);start.setDate(start.getDate()-windowDays);
+  const startEntry=entries.find(e=>parseKey(e.dateKey)>=start);
+  const endEntry=entries[entries.length-1];
+  if(!startEntry||startEntry===endEntry)return null;
+  const weightDelta=endEntry.weight-startEntry.weight;
+  const actualDays=Math.max(1,Math.round((parseKey(endEntry.dateKey)-parseKey(startEntry.dateKey))/86400000));
+  const weeks=actualDays/7;
+
+  let strengthRatios=[],workoutDays=new Set();
+  const exercises=(gymState&&gymState.exercises)||[];
+  const logsObj=(gymState&&gymState.logs)||{};
+  exercises.forEach(ex=>{
+    const logs=(logsObj[ex.id]||[]).slice();
+    if(logs.length<2||ex.bw){
+      logs.forEach(l=>{if(new Date(l.date)>=start)workoutDays.add(l.date.slice(0,10));});
+      return;
+    }
+    const inWin=logs.filter(l=>new Date(l.date)>=start);
+    const before=logs.filter(l=>new Date(l.date)<start);
+    inWin.forEach(l=>workoutDays.add(l.date.slice(0,10)));
+    if(!inWin.length||!before.length)return;
+    const avg=arr=>arr.reduce((s,l)=>s+estimate1RM(l.weight,l.reps),0)/arr.length;
+    const a=avg(before),b=avg(inWin);
+    if(a<=0)return;
+    strengthRatios.push(b/a);
+  });
+  const strengthDelta=strengthRatios.length?(strengthRatios.reduce((s,r)=>s+r,0)/strengthRatios.length)-1:0;
+  const sessionsPerWeek=(workoutDays.size/actualDays)*7;
+  const frequencyFactor=Math.max(0.4,Math.min(1.2,sessionsPerWeek/4));
+
+  const yt=COMPOSITION_CONFIG.yearsTraining||1;
+  const maxMuscleKgPerWeek=yt<=1?0.45:yt===2?0.23:0.11;
+  const unitConv=(gymUnit()==='lb')?2.20462:1;
+  const maxMusclePerWeek=maxMuscleKgPerWeek*unitConv;
+
+  const strengthBoost=Math.max(0.5,Math.min(1.5,1+strengthDelta*4));
+  let estMuscle=maxMusclePerWeek*weeks*strengthBoost*frequencyFactor;
+  let estFat,headlineCls,headline;
+  const u=gymUnit();
+  if(weightDelta>0){
+    estMuscle=Math.min(estMuscle,weightDelta);
+    estFat=Math.max(0,weightDelta-estMuscle);
+    const musclePct=estMuscle/weightDelta;
+    if(musclePct>=0.6&&strengthDelta>0){headlineCls='good';headline='+'+weightDelta.toFixed(1)+' '+u+' — mostly muscle, strength up.';}
+    else if(musclePct>=0.35){headlineCls='warn';headline='+'+weightDelta.toFixed(1)+' '+u+' — mixed. Tighten kcal or push lifts harder.';}
+    else{headlineCls='bad';headline='+'+weightDelta.toFixed(1)+' '+u+' — mostly fat. Strength flat. Cut kcal.';}
+  }else{
+    const wDown=Math.abs(weightDelta);
+    if(strengthDelta>=0){
+      estMuscle=Math.min(maxMusclePerWeek*weeks*0.3,0.5);
+      estFat=wDown+estMuscle;
+      headlineCls='good';headline='−'+wDown.toFixed(1)+' '+u+' — strength holding, fat dropping.';
+    }else{
+      const lossPct=Math.min(0.4,Math.abs(strengthDelta)*2);
+      estMuscle=-wDown*lossPct;
+      estFat=-(wDown+estMuscle);
+      headlineCls='warn';headline='−'+wDown.toFixed(1)+' '+u+' — strength slipping. You may be losing muscle.';
+    }
+  }
+  const totalAbs=Math.abs(estMuscle)+Math.abs(estFat)||1;
+  const musclePct=(Math.abs(estMuscle)/totalAbs)*100;
+  const fatPct=(Math.abs(estFat)/totalAbs)*100;
+  const sd=strengthDelta*100;
+  const sdStr=(sd>=0?'+':'')+sd.toFixed(1)+'%';
+  const muscleSign=estMuscle>=0?'+':'';
+  const fatSign=estFat>=0?'+':'';
+  const freqStr=sessionsPerWeek.toFixed(1)+' sessions/wk';
+  const foot='~'+muscleSign+estMuscle.toFixed(1)+' '+u+' muscle · ~'+fatSign+estFat.toFixed(1)+' '+u+' fat · strength '+sdStr+' · '+freqStr+(strengthRatios.length?'':' (no lift data)');
+  return {headline,headlineCls,musclePct,fatPct,foot,actualDays};
+}
 function compHtml(){
-  const c=COMPOSITION,u=state.units;
-  const wDisp=kgToDisplay(c.weightSlopeKgPerWeek,u);
-  const lean=c.estimatedLeanKgPerWeek==null?null:kgToDisplay(c.estimatedLeanKgPerWeek,u);
-  const fat=c.estimatedFatKgPerWeek==null?null:kgToDisplay(c.estimatedFatKgPerWeek,u);
-  function fmtKg(v){if(v==null)return '—';if(Math.abs(v)<0.02)return '±0';return (v>0?'+':'−')+Math.abs(v).toFixed(2);}
-  function fmtPct(v){if(v==null)return '—';if(Math.abs(v)<0.5)return 'flat';return (v>0?'+':'−')+Math.abs(v).toFixed(0)+'%';}
-  const pills=[
-    {label:'weight',value:fmtKg(wDisp)+' '+u+'/wk',tone:c.weightSlopeKgPerWeek>0.15?'up':c.weightSlopeKgPerWeek<-0.15?'down':'flat'},
-    {label:'lifts',value:fmtPct(c.volumeTrendPct),tone:c.volumeTrendPct==null?'flat':c.volumeTrendPct>3?'up':c.volumeTrendPct<-3?'down':'flat',preferUp:true},
-    {label:'muscle',value:fmtKg(lean)+' '+u+'/wk',tone:lean==null?'flat':lean>0.02?'up':lean<-0.02?'down':'flat',preferUp:true},
-    {label:'fat',value:fmtKg(fat)+' '+u+'/wk',tone:fat==null?'flat':fat>0.02?'down':fat<-0.02?'up':'flat'},
-  ];
-  const pillHtml=pills.map(p=>{const good=p.preferUp?'up':'down';const cls=(p.tone==='flat'||p.value.indexOf('—')>=0)?'compPillNeutral':p.tone===good?'compPillGood':'compPillBad';return '<div class="compPill '+cls+'"><span class="compPillLabel">'+p.label+'</span><span class="compPillValue">'+esc(p.value)+'</span></div>';}).join('');
-  return '<section class="section"><div class="sectionEyebrow">composition · last '+c.windowDays+' days</div>'
-    +'<div class="compCard"><div><span class="compPhaseWord">'+PHASE_LABEL[c.phase]+'</span></div><p class="compPhaseSub">'+PHASE_SUB[c.phase]+'</p>'
-    +(c.phase!=='insufficient'?'<div class="compPillRow">'+pillHtml+'</div>':'')
-    +'<p class="compCaveat">estimate · not a body-fat measurement'+(c.confidence<35?' · low data':'')+'</p></div>'
-    +'<p class="noteLine">Lifts + composition read from your workout logs in the hosted app — shown here as a sample.</p></section>';
+  const c=computeComposition();
+  if(!c){
+    return '<section class="section"><div class="sectionEyebrow">composition</div><div class="compCard"><p class="compPhaseSub">Log a few more weeks of weight + training on the Gym page to unlock this.</p></div></section>';
+  }
+  return '<section class="section"><div class="sectionEyebrow">composition · last '+c.actualDays+'d</div>'
+    +'<div class="compCard"><div class="compHeadline '+c.headlineCls+'">'+esc(c.headline)+'</div>'
+    +'<div class="compBars"><div class="compBar muscle" style="width:'+c.musclePct.toFixed(1)+'%"></div><div class="compBar fat" style="width:'+c.fatPct.toFixed(1)+'%"></div></div>'
+    +'<p class="compFoot">'+esc(c.foot)+'</p>'
+    +'<p class="compCaveat">estimate · not a body-fat measurement</p></div></section>';
 }
 
 /* ===================== Render: photos ===================== */
 function photosHtml(){
   const count=photos.length,latestP=photos[0]||null;
-  const curWeightLabel=latest()?(fmtDisp(latest().weightKg,state.units)+' '+state.units):null;
+  const curWeightLabel=latest()?(fmt1(latest().weight)+' '+gymUnit()):null;
   let body;
   if(!latestP){
     body='<button class="photosEmptyTrigger" data-act="openGallery"><span class="photosTriggerIcon">◐</span><div class="photosEmptyTriggerText"><div class="photosTriggerLabel">Add your first photo</div><div class="photosTriggerCount">start a private timeline of your progress</div></div><span class="photosTriggerArrow">→</span></button>';
@@ -415,7 +489,7 @@ function themeSegHtml(){return '<div class="themeSeg" role="radiogroup" aria-lab
 function render(){
   document.getElementById('app').innerHTML=
     '<header class="header"><a class="back" href="index.html"><span class="backArrow">←</span> ' + esc(brandName()) + '</a>'
-    +'<div class="headerRow"><h1 class="title">Progress</h1><div class="unitSeg"><button class="unitBtn '+(state.units==='kg'?'unitBtnActive':'')+'" data-act="units" data-u="kg">kg</button><button class="unitBtn '+(state.units==='lb'?'unitBtnActive':'')+'" data-act="units" data-u="lb">lb</button></div>'+themeSegHtml()+'</div>'
+    +'<div class="headerRow"><h1 class="title">Progress</h1>'+themeSegHtml()+'</div>'
     +'<p class="subtitle">weight log · progress photos</p></header>'
     +heroHtml()+trainingHtml()+compHtml()+photosHtml();
   renderModals();
@@ -460,7 +534,7 @@ fileInput.addEventListener('change',e=>{
   reader.onload=async ev=>{
     if(typeof ev.target.result!=='string')return;
     let c=ev.target.result;try{c=await compress(ev.target.result,1080,.75);}catch(err){}
-    const curWeightLabel=latest()?(fmtDisp(latest().weightKg,state.units)+' '+state.units):null;
+    const curWeightLabel=latest()?(fmt1(latest().weight)+' '+gymUnit()):null;
     const id='p_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
     const next={id,dataUrl:c,dateKey:getLocalDateKey(),weightLabel:curWeightLabel};
     // Cloud sync on? Upload the image to Supabase Storage and keep only the URL —
@@ -485,7 +559,6 @@ fileInput.addEventListener('change',e=>{
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act;if(act==='theme'){applyTheme(b.dataset.theme);return;}
   if(act==='back'){e.preventDefault();}
-  else if(act==='units')changeUnits(b.dataset.u);
   else if(act==='edit')startEdit();
   else if(act==='openGallery'){ui.photosOpen=true;render();}
   else if(act==='closeGallery'){ui.photosOpen=false;render();}
@@ -510,9 +583,6 @@ applyTheme(currentTheme);
 (async function cloudHydrate(){
   if(!window.PatronDB||!PatronDB.isCloud())return;
   try{
-    const cs=await PatronDB.get('patron-progress');
-    if(cs&&Array.isArray(cs.entries)){state={units:cs.units||state.units,entries:cs.entries};try{localStorage.setItem(LS,JSON.stringify(state));}catch{}}
-    else{PatronDB.set('patron-progress',{units:state.units,entries:state.entries});} // seed cloud from this device
     const cp=await PatronDB.get('patron-progress-photos');
     if(Array.isArray(cp)){photos=cp;try{localStorage.setItem(PHOTOS,JSON.stringify(photos));}catch{}}
     else if(photos.length){PatronDB.set('patron-progress-photos',photos);}
