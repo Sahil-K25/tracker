@@ -16,6 +16,7 @@
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 img{max-width:100%;height:auto}
+input,select,textarea{min-width:0}
 @media (max-width:480px){input,select,textarea{font-size:16px !important}}
 @supports (padding:max(0px)){body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
 </style>
@@ -114,6 +115,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-inter),-apple-s
 .themeSwatch{width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 1px var(--border-strong) inset;flex-shrink:0}
 .themeBtnActive,.themeBtnActive:hover{background:var(--brand-soft);color:var(--fg)}
 .themeBtnActive .themeSwatch{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brand)}
+@media (max-width:480px){.themeBtn .themeBtnLabel{display:none}.themeBtn{padding:6px}}
 
 /* Eyebrow */
 .heroEyebrow{display:inline-flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-strong);margin-bottom:var(--space-3)}
@@ -266,7 +268,7 @@ const THEMES=[{key:'nocturne',label:'Nocturne',swatch:'#8B7CFF'},{key:'aurora',l
 let currentTheme=(function(){try{return localStorage.getItem('patron_theme')||'nocturne';}catch(e){return 'nocturne';}})();
 if(!THEMES.some(t=>t.key===currentTheme))currentTheme='nocturne';
 function applyTheme(name){if(!THEMES.some(t=>t.key===name))name='nocturne';currentTheme=name;document.documentElement.setAttribute('data-theme',name);try{localStorage.setItem('patron_theme',name);}catch(e){}render();}
-function themeSegHtml(){return '<div class="themeSeg" role="radiogroup" aria-label="Theme">'+THEMES.map(t=>'<button type="button" class="themeBtn '+(t.key===currentTheme?'themeBtnActive':'')+'" data-act="theme" data-theme="'+t.key+'"><span class="themeSwatch" style="background:'+t.swatch+'"></span>'+t.label+'</button>').join('')+'</div>';}
+function themeSegHtml(){return '<div class="themeSeg" role="radiogroup" aria-label="Theme">'+THEMES.map(t=>'<button type="button" class="themeBtn '+(t.key===currentTheme?'themeBtnActive':'')+'" data-act="theme" data-theme="'+t.key+'"><span class="themeSwatch" style="background:'+t.swatch+'"></span><span class="themeBtnLabel">'+t.label+'</span></button>').join('')+'</div>';}
 function seed(){
   const logs={};const samples=[6,5,6,4,6,7,3,6,5,6,2,6,4]; // last 13 days (oldest→newest), today stays 0
   for(let i=0;i<samples.length;i++){const d=new Date();d.setDate(d.getDate()-(samples.length-i));logs[getLocalDateKey(d)]=samples[i];}

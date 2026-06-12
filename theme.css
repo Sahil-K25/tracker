@@ -141,6 +141,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
 img { max-width: 100%; height: auto; }
+input, select, textarea { min-width: 0; } /* prevent form fields from blowing out flex/grid rows on narrow screens */
 @media (max-width: 480px) { input, select, textarea { font-size: 16px !important; } } /* stop iOS zoom-on-focus */
 @supports (padding: max(0px)) {
   body {

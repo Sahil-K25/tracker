@@ -16,6 +16,7 @@
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 img{max-width:100%;height:auto}
+input,select,textarea{min-width:0}
 @media (max-width:480px){input,select,textarea{font-size:16px !important}}
 @supports (padding:max(0px)){body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
 </style>
@@ -129,6 +130,7 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 .themeSwatch { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 1px var(--border-strong) inset; flex-shrink:0; }
 .themeBtnActive, .themeBtnActive:hover { background: var(--brand-soft); color: var(--fg); }
 .themeBtnActive .themeSwatch { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--brand); }
+@media (max-width: 480px) { .themeBtn .themeBtnLabel { display: none; } .themeBtn { padding: 6px; } }
 
 /* Rowan Score badge */
 .scoreBadge { display:inline-flex; align-items:center; gap: var(--space-3); padding: var(--space-3) var(--space-5); border: 1px solid var(--brand-line); border-radius: var(--radius-lg); background: var(--brand-soft); box-shadow: 0 0 36px -16px var(--brand-glow); }
@@ -259,10 +261,11 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 @media (max-width: 560px) { .footer { flex-direction:column; align-items:flex-start; } .footerActions { flex-wrap: wrap; } }
 
 /* Source toggle (Whoop / Apple Health) */
-.srcSeg { display:inline-flex; align-self:flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px; gap: 2px; }
-.srcTab { appearance:none; background: transparent; border:0; color: var(--muted); font-family: var(--font-ui); font-size: var(--text-sm); font-weight: 600; padding: 7px 15px; border-radius: var(--radius-pill); cursor: pointer; display:inline-flex; align-items:center; gap: 7px; transition: background var(--duration) var(--ease-premium), color var(--duration) var(--ease-premium); }
+.srcSeg { display:inline-flex; align-self:flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px; gap: 2px; max-width: 100%; overflow-x: auto; }
+.srcTab { appearance:none; background: transparent; border:0; color: var(--muted); font-family: var(--font-ui); font-size: var(--text-sm); font-weight: 600; padding: 7px 15px; border-radius: var(--radius-pill); cursor: pointer; display:inline-flex; align-items:center; gap: 7px; white-space: nowrap; flex-shrink: 0; transition: background var(--duration) var(--ease-premium), color var(--duration) var(--ease-premium); }
 .srcTab:hover { color: var(--muted-strong); }
 .srcTabActive, .srcTabActive:hover { background: var(--brand-soft); color: var(--fg); }
+@media (max-width: 380px) { .srcTab { padding: 6px 6px; font-size: 11px; gap: 3px; } }
 
 /* Manual-entry form (Apple Health) */
 .fieldGrid { display:grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
@@ -623,7 +626,7 @@ function applyTheme(name){
 }
 function themeSegHtml(){
   return '<div class="themeSeg" role="radiogroup" aria-label="Theme">'
-    + THEMES.map(t => '<button type="button" class="themeBtn ' + (t.key === currentTheme ? 'themeBtnActive' : '') + '" data-action="theme" data-theme="' + t.key + '"><span class="themeSwatch" style="background:' + t.swatch + '"></span>' + t.label + '</button>').join('')
+    + THEMES.map(t => '<button type="button" class="themeBtn ' + (t.key === currentTheme ? 'themeBtnActive' : '') + '" data-action="theme" data-theme="' + t.key + '"><span class="themeSwatch" style="background:' + t.swatch + '"></span><span class="themeBtnLabel">' + t.label + '</span></button>').join('')
     + '</div>';
 }
 let connected = false;
