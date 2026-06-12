@@ -139,6 +139,10 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-ui), -ap
 .cardTag { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .cardArrow { position:absolute; top: var(--space-5); right: var(--space-5); color: var(--muted); font-size: 16px; transition: color var(--duration) var(--ease-premium), transform var(--duration) var(--ease-premium); }
 .card:hover .cardArrow { color: var(--brand); transform: translate(2px,-2px); }
+.cardLinkOverlay { position:absolute; inset:0; z-index:0; }
+.cardQuickAdd { position:absolute; bottom: var(--space-4); right: var(--space-4); z-index:1; display:inline-flex; align-items:center; gap:4px; padding: 6px 11px; border-radius: var(--radius-pill); border: 1px solid var(--brand-line); background: var(--brand-soft); color: var(--fg); font-family: var(--font-ui); font-size: 12px; font-weight: 700; line-height:1; cursor:pointer; transition: background var(--duration) var(--ease-premium), border-color var(--duration) var(--ease-premium), transform var(--duration) var(--ease-premium); }
+.cardQuickAdd:hover { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.cardQuickAdd:active { transform: scale(0.94); }
 .cardTop { display:flex; align-items:center; gap: var(--space-3); }
 .cardStat { display:flex; flex-direction:column; gap: 2px; margin-top: auto; }
 .cardStatValue { font-family: var(--font-display); font-weight: 600; font-size: var(--text-xl); letter-spacing: -0.02em; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -466,15 +470,32 @@ function statFor(file){
   } catch (e) {}
   return null;
 }
+// Bump today's water log directly from the dashboard (no need to open water.html).
+function bumpWater(){
+  let s = lsGet('water_standalone_v1');
+  if (!s) s = { version: 2, unit: 'bottle', bottleMl: 500, glassMl: 250, logs: {} };
+  if (!s.logs) s.logs = {};
+  const k = localDateKey();
+  s.logs[k] = (s.logs[k] || 0) + 1;
+  try { localStorage.setItem('water_standalone_v1', JSON.stringify(s)); } catch(e){}
+  render();
+}
 function cardHtml(a){
   const st = statFor(a.file);
   const tail = st
     ? '<div class="cardStat"><span class="cardStatValue">' + esc(st.value) + '</span><span class="cardStatLabel">' + esc(st.label) + '</span></div>'
     : '<p class="cardTag">' + esc(a.tag) + '</p>';
-  return '<a class="card' + (a.wide ? ' tileWide' : '') + '" href="' + a.file + '">'
-    + '<span class="cardArrow" aria-hidden>↗</span>'
+  const body = '<span class="cardArrow" aria-hidden>↗</span>'
     + '<div class="cardTop"><span class="cardIcon" aria-hidden>' + a.icon + '</span><span class="cardName">' + esc(a.name) + '</span></div>'
-    + tail + '</a>';
+    + tail;
+  if (a.file === 'water.html') {
+    return '<div class="card' + (a.wide ? ' tileWide' : '') + '">'
+      + '<a class="cardLinkOverlay" href="' + a.file + '" aria-label="Open ' + esc(a.name) + '"></a>'
+      + body
+      + '<button type="button" class="cardQuickAdd" data-action="water-add" title="Log one drink" aria-label="Log one drink">+1 💧</button>'
+      + '</div>';
+  }
+  return '<a class="card' + (a.wide ? ' tileWide' : '') + '" href="' + a.file + '">' + body + '</a>';
 }
 
 /* ============================================================
@@ -541,13 +562,65 @@ function tickerHtml(){
     + seq + seq + '</div></div></div>';
 }
 
-/* ---- Daily "did you log it?" reminders (weight + gym), read from each app's storage ---- */
+/* ---- Daily "did you log it?" reminders, read from each app's own storage.
+ * Every check looks only at *today's* entry, so a reminder disappears the
+ * moment it's satisfied and reappears fresh the next day automatically. ---- */
 function loggedWeightToday(){ try { const s = lsGet('progress_standalone_v1'); return !!(s && Array.isArray(s.entries) && s.entries.some(e => e && e.dateKey === localDateKey())); } catch(e){ return false; } }
 function loggedGymToday(){ try { const d = lsGet('po_coach_workout_done'); return !!(d && d[localDateKey()]); } catch(e){ return false; } }
+function goalsDoneToday(){
+  try {
+    const dateStr = activeDateKey();
+    const goals = lsGet('goals:' + dateStr) || [];
+    const habits = lsGet('daily_habits_v1') || [];
+    if (!goals.length && !habits.length) return true;
+    return goals.every(g => g && g.done) && habits.every(h => h && h.done && h.doneDate === dateStr);
+  } catch(e){ return true; }
+}
+function suppsDoneToday(){
+  try {
+    const s = lsGet('supplements_standalone_v1');
+    if (!s || !Array.isArray(s.items) || !s.items.length) return true;
+    const tk = (s.taken && s.taken[activeDateKey()]) || {};
+    return s.items.every(i => tk[i.id]);
+  } catch(e){ return true; }
+}
+// Remaining water units for today, vs the personal target water.html computes & persists as targetMl.
+function waterRemaining(){
+  try {
+    const s = lsGet('water_standalone_v1');
+    if (!s || !s.logs) return null;
+    const unitMl = s.unit === 'bottle' ? (s.bottleMl || 500) : s.unit === 'glass' ? (s.glassMl || 250) : s.unit === 'oz' ? 30 : 1;
+    const targetMl = s.targetMl || ((s.weightKg || 70) * 35 + (s.sex === 'm' ? 200 : 0) + ((s.age || 0) >= 50 ? 100 : 0));
+    const target = Math.max(1, Math.ceil(targetMl / unitMl));
+    const done = s.logs[localDateKey()] || 0;
+    const remaining = Math.max(0, target - done);
+    const label = s.unit === 'bottle' ? (remaining === 1 ? 'bottle' : 'bottles') : s.unit === 'glass' ? (remaining === 1 ? 'glass' : 'glasses') : (s.unit || 'units');
+    return { remaining, label };
+  } catch(e){ return null; }
+}
+// Remaining calories for today, vs the goal set on the macros page (defaults to 2000).
+function macrosRemaining(){
+  try {
+    const s = lsGet('macros_standalone_v1');
+    if (!s) return null;
+    const goalCal = s.goalCal != null ? s.goalCal : 2000;
+    const day = s[localDateKey()];
+    const eaten = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.cal) || 0), 0) : 0;
+    return Math.max(0, Math.round(goalCal - eaten));
+  } catch(e){ return null; }
+}
 function remindersHtml(){
   const items = [];
   if (!loggedWeightToday()) items.push({ file: 'progress.html', icon: '⚖️', text: 'Log today’s weight' });
   if (!loggedGymToday()) items.push({ file: 'gym.html', icon: '🏋️', text: 'Log today’s gym' });
+  if (!goalsDoneToday()) items.push({ file: 'goals.html', icon: '🎯', text: 'Complete today’s goals' });
+  if (!suppsDoneToday()) items.push({ file: 'supplements.html', icon: '💊', text: 'Take your supplements' });
+  const water = waterRemaining();
+  if (water === null) items.push({ file: 'water.html', icon: '💧', text: 'Log your water' });
+  else if (water.remaining > 0) items.push({ file: 'water.html', icon: '💧', text: 'Drink ' + water.remaining + ' more ' + water.label });
+  const macros = macrosRemaining();
+  if (macros === null) items.push({ file: 'macros.html', icon: '🍳', text: 'Log your macros' });
+  else if (macros > 0) items.push({ file: 'macros.html', icon: '🍳', text: 'Eat ' + macros + ' more kcal' });
   if (!items.length) return '';
   return '<div class="reminders" role="status"><span class="remindersLabel">Today</span>'
     + items.map(r => '<a class="reminderChip" href="' + r.file + '"><span class="reminderDot"></span><span aria-hidden>' + r.icon + '</span> ' + r.text + ' <span class="reminderGo" aria-hidden>→</span></a>').join('')
@@ -792,6 +865,7 @@ document.addEventListener('click', e => {
   if (action === 'theme') { applyTheme(btn.getAttribute('data-theme')); return; }
   if (action === 'open-vitals') { openVitals(); return; }
   if (action === 'open-profile') { openProfile(); return; }
+  if (action === 'water-add') { bumpWater(); return; }
   if (action === 'open-layout') { openLayoutEditor(); return; }
   if (action === 'close-layout') { if (!stop || btn.tagName === 'BUTTON') { ui.layoutOpen = false; renderModal(); } return; }
   if (action === 'layout-up') { moveLayoutItem(Number(btn.getAttribute('data-index')), -1); return; }

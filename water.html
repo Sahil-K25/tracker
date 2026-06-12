@@ -283,8 +283,9 @@ function load(){try{const r=localStorage.getItem(LS);if(!r)return seed();const s
   if(!Array.isArray(s.stims))s.stims=[];
   if(s.activityHrsPerDay==null)s.activityHrsPerDay=s.activityHrsPerWeek?Math.round((s.activityHrsPerWeek/7)*100)/100:0; // migrate old weekly value
   return s;}catch{return seed();}}
-function save(){try{localStorage.setItem(LS,JSON.stringify(state));}catch{}}
+function save(){try{state.targetMl=Math.round(computeTarget(state).total);localStorage.setItem(LS,JSON.stringify(state));}catch{}}
 let state=load();
+save(); // persist targetMl (+ any seed defaults) so the dashboard reminder can read it without recomputing the heuristic
 const ui={whyOpen:false,settingsOpen:false,punch:false};
 
 /* Derived */
