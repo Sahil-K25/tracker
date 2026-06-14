@@ -19,27 +19,32 @@
 
   function start(url, key) {
     if (!url || !key || !window.supabase || url.indexOf('PASTE-') === 0) { reveal(); return; }
-    var sb = window.supabase.createClient(url, key);
-    sb.auth.getSession().then(function (res) {
-      var session = res.data && res.data.session;
-      if (!session) {
-        location.replace('login.html?redirect=' + encodeURIComponent(location.pathname + location.search));
-        return;
-      }
-      window.PatronAuth = {
-        client: sb,
-        user: session.user,
-        signOut: function () { return sb.auth.signOut().then(function () { location.href = 'login.html'; }); },
-      };
-      reveal();
-      sb.auth.onAuthStateChange(function (event) {
-        if (event === 'SIGNED_OUT') location.href = 'login.html';
-      });
-    }).catch(reveal);
+    try {
+      var sb = window.supabase.createClient(url, key);
+      sb.auth.getSession().then(function (res) {
+        var session = res.data && res.data.session;
+        if (!session) {
+          location.replace('login.html?redirect=' + encodeURIComponent(location.pathname + location.search));
+          return;
+        }
+        window.PatronAuth = {
+          client: sb,
+          user: session.user,
+          signOut: function () { return sb.auth.signOut().then(function () { location.href = 'login.html'; }); },
+        };
+        reveal();
+        sb.auth.onAuthStateChange(function (event) {
+          if (event === 'SIGNED_OUT') location.href = 'login.html';
+        });
+      }).catch(reveal);
+    } catch (_) { reveal(); }
   }
 
-  var ovUrl = (localStorage.getItem('po_supabase_url') || '').trim();
-  var ovKey = (localStorage.getItem('po_supabase_key') || '').trim();
+  var ovUrl = '', ovKey = '';
+  try {
+    ovUrl = (localStorage.getItem('po_supabase_url') || '').trim();
+    ovKey = (localStorage.getItem('po_supabase_key') || '').trim();
+  } catch (_) {}
   if (ovUrl && ovKey) { start(ovUrl, ovKey); return; }
 
   fetch('/api/config', { cache: 'no-store' })
