@@ -70,3 +70,4 @@ end $$;
 
 -- Done. Set SUPABASE_URL + SUPABASE_ANON_KEY as Vercel env vars (Settings → API
 -- gives you both), redeploy, and every device syncs automatically.
+-- Optional: if you want to use Supabase's built-in auth UI, set up a sign-in
