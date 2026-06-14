@@ -34,9 +34,6 @@ back-to-dashboard link, and the suite styling.
 - **Tokens**: always style with the CSS variables
   (`var(--brand)`, `var(--space-4)`, `var(--radius-lg)`, `var(--fg)`…)
   instead of hard-coded colors/sizes, and you can never drift off-brand.
-- **Login gate**: the `<style>html{visibility:hidden}</style>` +
-  `auth-guard.js` snippet at the top of `_template.html`'s `<head>` is
-  already there — new pages are protected automatically, nothing to add.
 
 ## Saving data
 Each page keeps its own data in `localStorage` under a unique key, e.g.
