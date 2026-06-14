@@ -18,6 +18,7 @@
   var URL_KEY = 'po_supabase_url', ANON_KEY = 'po_supabase_key';
   function getU() { return (localStorage.getItem(URL_KEY) || '').trim(); }
   function getK() { return (localStorage.getItem(ANON_KEY) || '').trim(); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   // Connected = either keys are pasted OR db.js has a working (baked-in) connection.
   function connected() { return (window.PatronDB && PatronDB.isCloud()) || !!(getU() && getK()); }
 
@@ -38,6 +39,8 @@
     '#csCancel{background:transparent;border-color:var(--border,rgba(255,255,255,.12));color:var(--fg,#fff)}' +
     '#csDisconnect{background:transparent;border:0;color:var(--muted,rgba(243,242,248,.5));font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline}' +
     '#csStatus{font-family:var(--font-mono,monospace);font-size:11px;margin:0 0 14px}' +
+    '#csAccount{font-size:12px;color:var(--muted-strong,rgba(243,242,248,.74));margin:0 0 14px}' +
+    '#csSignOut{background:transparent;border:0;color:var(--brand,#8B7CFF);text-decoration:underline;cursor:pointer;font-size:12px;padding:0;font-family:inherit}' +
     '#csCard a{color:var(--brand,#8B7CFF)}';
   document.head.appendChild(style);
 
@@ -58,6 +61,9 @@
       '<h2>Cloud sync</h2>' +
       '<p>Sync your data + photos across devices with your own free <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a> project. Run <code>supabase-schema.sql</code> once, then paste your keys below. Leave blank to keep everything on this device.</p>' +
       '<p id="csStatus">' + (connected() ? '✓ Connected — syncing automatically across your devices.' : 'Local-only — data stays on this device.') + '</p>' +
+      (window.PatronAuth && window.PatronAuth.user
+        ? '<p id="csAccount">Signed in as <strong>' + esc(window.PatronAuth.user.email) + '</strong> &middot; <button id="csSignOut" type="button">Sign out</button></p>'
+        : '') +
       '<details style="margin-top:14px"><summary style="cursor:pointer;font-size:12px;opacity:.7">Advanced: use your own Supabase project</summary>' +
       '<label style="margin-top:10px">Project URL</label><input id="csUrl" type="text" autocomplete="off" spellcheck="false" placeholder="https://YOUR-PROJECT.supabase.co" value="' + getU().replace(/"/g, '&quot;') + '">' +
       '<label>Anon public key</label><input id="csKey" type="password" autocomplete="off" spellcheck="false" placeholder="paste the anon public key" value="' + getK().replace(/"/g, '&quot;') + '">' +
@@ -76,6 +82,8 @@
     };
     var dc = document.getElementById('csDisconnect');
     if (dc) dc.onclick = function () { localStorage.removeItem(URL_KEY); localStorage.removeItem(ANON_KEY); location.reload(); };
+    var so = document.getElementById('csSignOut');
+    if (so) so.onclick = function () { if (window.PatronAuth && window.PatronAuth.signOut) window.PatronAuth.signOut(); };
     function close() { ov.remove(); }
   }
 })();

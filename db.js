@@ -33,8 +33,9 @@ window.PatronDB = (function () {
   let KEY = _ovKey;
   let ready = false;
   let sb = null;
+  let uid = null; // signed-in user's id (set by auth-guard.js's session) — scopes every row
 
-  const SNAP_KEY = 'patron-device-snapshot'; // the single row holding the device blob
+  const SNAP_KEY = 'patron-device-snapshot'; // this user's row holding the device blob
   const TS_KEY = 'po_snapshot_ts';           // ts of the snapshot we're in sync with
   const PH_KEY = 'po_snapshot_hash';         // hash of the data we last synced
 
@@ -43,6 +44,17 @@ window.PatronDB = (function () {
     sb = ready ? window.supabase.createClient(u, k) : null;
   }
   _connect(URL, KEY);
+
+  // Pulls the current user id from the session auth-guard.js already
+  // established (shared via localStorage). No session -> sync stays a no-op.
+  async function _resolveUser() {
+    if (!sb) return null;
+    try {
+      const { data } = await sb.auth.getSession();
+      uid = (data && data.session && data.session.user && data.session.user.id) || null;
+    } catch (_) { uid = null; }
+    return uid;
+  }
 
   function isCloud() { return ready; }
   function cfgUrl() { return URL || ''; }
@@ -69,20 +81,26 @@ window.PatronDB = (function () {
   function subscribe(_key, _cb) { return function () {}; } // adopt-path reloads; shim is enough
 
   /* ---- progress photos: file -> Supabase Storage, only the URL is kept locally
-   * (and therefore rides in the snapshot). ---- */
+   * (and therefore rides in the snapshot). Stored under <user_id>/<path> so the
+   * storage RLS policy (own-folder-only writes) is satisfied; callers pass the
+   * bare path and never see the user_id prefix. ---- */
   async function uploadImage(bucket, path, dataUrl, contentType) {
     if (!sb) return null;
+    if (!uid) await _resolveUser();
+    if (!uid) return null;
     try {
       const blob = await (await fetch(dataUrl)).blob();
-      const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: contentType || 'image/jpeg', upsert: true });
+      const { error } = await sb.storage.from(bucket).upload(uid + '/' + path, blob, { contentType: contentType || 'image/jpeg', upsert: true });
       if (error) return null;
-      const { data } = sb.storage.from(bucket).getPublicUrl(path);
+      const { data } = sb.storage.from(bucket).getPublicUrl(uid + '/' + path);
       return (data && data.publicUrl) ? data.publicUrl : null;
     } catch (_) { return null; }
   }
   async function deleteImage(bucket, path) {
     if (!sb || !path) return;
-    try { await sb.storage.from(bucket).remove([path]); } catch (_) {}
+    if (!uid) await _resolveUser();
+    if (!uid) return;
+    try { await sb.storage.from(bucket).remove([uid + '/' + path]); } catch (_) {}
   }
 
   /* ============================================================
@@ -114,14 +132,14 @@ window.PatronDB = (function () {
   let _pushTimer = null;
 
   async function _pushNow() {
-    if (!sb) return 0;
+    if (!sb || !uid) return 0;
     const blob = _gather();
     const hash = _hash(blob);
     const ts = Date.now();
     try {
       await sb.from('app_state').upsert(
-        { key: SNAP_KEY, data: { blob: blob, ts: ts }, updated_at: new Date(ts).toISOString() },
-        { onConflict: 'key' }
+        { user_id: uid, key: SNAP_KEY, data: { blob: blob, ts: ts }, updated_at: new Date(ts).toISOString() },
+        { onConflict: 'user_id,key' }
       );
       _setSynced(ts, hash);
       return ts;
@@ -138,9 +156,9 @@ window.PatronDB = (function () {
   }
 
   async function _fetchSnapshot() {
-    if (!sb) return null;
+    if (!sb || !uid) return null;
     try {
-      const { data, error } = await sb.from('app_state').select('data').eq('key', SNAP_KEY).maybeSingle();
+      const { data, error } = await sb.from('app_state').select('data').eq('user_id', uid).eq('key', SNAP_KEY).maybeSingle();
       if (!error && data && data.data && data.data.blob) return { blob: data.data.blob, ts: data.data.ts || 0 };
     } catch (_) {}
     return null;
@@ -182,6 +200,7 @@ window.PatronDB = (function () {
   function _startSync() {
     if (!ready) return;
     (async function () {
+      await _resolveUser();
       await _reconcile(true);
       setInterval(_pushIfChanged, 2500);
       window.addEventListener('storage', _schedulePush);
