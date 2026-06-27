@@ -722,6 +722,64 @@ body::after {
 }
 .gm-status.gm-status-error { color: var(--danger); }
 
+/* Habit percentage badge (right side of card header) */
+.habit-pct-badge {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  align-self: center;
+  transition: color 0.3s;
+  font-variant-numeric: tabular-nums;
+}
+.gm-card.gm-all-done .habit-pct-badge { color: var(--success); }
+
+/* Past 7 days history row */
+.habit-history-row {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+  margin-bottom: 14px;
+  padding: 0 4px;
+  flex-wrap: wrap;
+}
+.hh-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.hh-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+.hh-pill {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  min-width: 38px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.hh-day {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.hh-pct {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.hh-pill-full  { border-color: rgba(var(--success-rgb),0.30); background: rgba(var(--success-rgb),0.06); }
+.hh-pill-full  .hh-pct { color: var(--success); }
+.hh-pill-high  .hh-pct { color: var(--brand-2); }
+.hh-pill-mid   .hh-pct { color: var(--warning); }
+.hh-pill-low   .hh-pct { color: var(--danger); }
+.hh-pill-empty .hh-pct { color: var(--text-tertiary); }
+
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
@@ -823,6 +881,7 @@ body::after {
             <span class="gm-progress-label" id="habitProgressLabel">no daily habits yet</span>
           </div>
         </div>
+        <div class="habit-pct-badge" id="habitProgressPct" hidden>—</div>
       </div>
       <div class="gm-bar" id="habitBar"></div>
       <ul id="habitList" class="goal-list gm-list"></ul>
@@ -832,6 +891,7 @@ body::after {
         <button type="button" id="habitAddBtn" class="gm-add">+ Add</button>
       </div>
     </div>
+    <div class="habit-history-row" id="habitHistoryRow"></div>
   </div>
 
   <div class="section">
@@ -1629,15 +1689,44 @@ body::after {
 
   // ---------- Daily Habits (persist, but completion resets every day) ----------
   const HABITS_KEY = 'daily_habits_v1';
+  const HABITS_HISTORY_KEY = 'daily_habits_history_v1';
+
   function getHabits() {
     const h = storeGet(HABITS_KEY);
     return Array.isArray(h) ? h : [];
   }
   function setHabits(list) { storeSet(HABITS_KEY, list); }
 
+  // True calendar date at midnight (not the 6am-shifted active date)
+  function getHabitDateStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function saveHabitHistoryForDate(dateStr, list) {
+    if (!list.length) return;
+    const done = list.filter(h => h.doneDate === dateStr).length;
+    const pct  = Math.round((done / list.length) * 100);
+    const history = storeGet(HABITS_HISTORY_KEY) || {};
+    history[dateStr] = pct;
+    // Keep only last 30 days
+    const keys = Object.keys(history).sort();
+    if (keys.length > 30) keys.slice(0, keys.length - 30).forEach(k => delete history[k]);
+    storeSet(HABITS_HISTORY_KEY, history);
+  }
+
   function resetHabitsIfNewDay() {
-    const todayStr = getActiveDateString();
+    const todayStr = getHabitDateStr();
     const list = getHabits();
+
+    // Save history for each past date before clearing
+    const pastDates = new Set();
+    list.forEach(h => { if (h.done && h.doneDate && h.doneDate !== todayStr) pastDates.add(h.doneDate); });
+    pastDates.forEach(dateStr => {
+      const existing = storeGet(HABITS_HISTORY_KEY) || {};
+      if (!(dateStr in existing)) saveHabitHistoryForDate(dateStr, list);
+    });
+
     let changed = false;
     list.forEach(h => {
       if (h.done && h.doneDate !== todayStr) {
@@ -1728,7 +1817,7 @@ body::after {
       const list = getHabits();
       if (!list[idx]) return;
       list[idx].done = cb.checked;
-      if (cb.checked) list[idx].doneDate = getActiveDateString();
+      if (cb.checked) list[idx].doneDate = getHabitDateStr();
       else delete list[idx].doneDate;
       setHabits(list);
       renderHabits();
@@ -1770,6 +1859,12 @@ body::after {
     else if (done === total) label.textContent = 'all done — solid day';
     else                      label.textContent = 'complete';
 
+    const pctEl = document.getElementById('habitProgressPct');
+    if (pctEl) {
+      if (total === 0) { pctEl.hidden = true; }
+      else { pctEl.textContent = Math.round((done / total) * 100) + '%'; pctEl.hidden = false; }
+    }
+
     const bar = document.getElementById('habitBar');
     bar.innerHTML = '';
     list.forEach(h => {
@@ -1786,6 +1881,60 @@ body::after {
     emptyEl.style.display = list.length === 0 ? 'block' : 'none';
     list.forEach((h, i) => listEl.appendChild(buildHabitRow(h, i)));
   }
+
+  function renderHabitHistory() {
+    const el = document.getElementById('habitHistoryRow');
+    if (!el) return;
+    const history = storeGet(HABITS_HISTORY_KEY) || {};
+    const DAY_FULL = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const days = [];
+    for (let i = 7; i >= 1; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+      days.push({ abbr: DAY_FULL[d.getDay()].slice(0, 2), pct: history[key] });
+    }
+    if (days.every(d => d.pct === undefined)) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    el.innerHTML = '';
+    const lbl = document.createElement('span');
+    lbl.className = 'hh-label';
+    lbl.textContent = 'Past 7 days';
+    el.appendChild(lbl);
+    const pills = document.createElement('div');
+    pills.className = 'hh-pills';
+    days.forEach(({ abbr, pct }) => {
+      const hasData = pct !== undefined;
+      const cls = !hasData ? 'empty' : pct === 100 ? 'full' : pct >= 75 ? 'high' : pct >= 50 ? 'mid' : 'low';
+      const pill = document.createElement('div');
+      pill.className = 'hh-pill hh-pill-' + cls;
+      pill.innerHTML = '<span class="hh-day">' + abbr + '</span><span class="hh-pct">' + (hasData ? pct + '%' : '—') + '</span>';
+      pills.appendChild(pill);
+    });
+    el.appendChild(pills);
+  }
+
+  // Midnight reset: check every 30s for a true calendar-date change
+  let _habitToday = getHabitDateStr();
+  setInterval(() => {
+    const now = getHabitDateStr();
+    if (now === _habitToday) return;
+    // Save today's completion before the date flips
+    const list = getHabits();
+    if (list.length > 0) {
+      const done = list.filter(h => h.done).length;
+      const pct  = Math.round((done / list.length) * 100);
+      const history = storeGet(HABITS_HISTORY_KEY) || {};
+      history[_habitToday] = pct;
+      const keys = Object.keys(history).sort();
+      if (keys.length > 30) keys.slice(0, keys.length - 30).forEach(k => delete history[k]);
+      storeSet(HABITS_HISTORY_KEY, history);
+    }
+    _habitToday = now;
+    resetHabitsIfNewDay();
+    renderHabits();
+    renderHabitHistory();
+  }, 30000);
 
   document.getElementById('habitAddBtn').addEventListener('click', () => {
     const input = document.getElementById('habitInput');
@@ -1808,6 +1957,7 @@ body::after {
   loadToday();
   loadTomorrow();
   renderHabits();
+  renderHabitHistory();
   renderStreak();
   setupDayWindowPopover();
   updateDayRing();
@@ -1816,7 +1966,7 @@ body::after {
 
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', (e) => {
-    loadToday(); loadTomorrow(); renderStreak(); renderHabits();
+    loadToday(); loadTomorrow(); renderStreak(); renderHabits(); renderHabitHistory();
     // vitals updated elsewhere (dashboard / Whoop tab) → refresh the day window
     if (!e || !e.key || e.key === SUITE_HEALTH_KEY || e.key === LEGACY_WHOOP_KEY || e.key === DAY_WINDOW_KEY) updateDayRing();
   });
