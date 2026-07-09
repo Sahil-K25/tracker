@@ -1690,10 +1690,6 @@ img, video, canvas, svg { max-width: 100%; }
       <input type="checkbox" id="exBw">
       Bodyweight (track reps only, no weight)
     </label>
-    <div class="po-field" id="exStartWeightField">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Starting weight</label>
-      <input type="number" id="exStartWeight" step="0.5" placeholder="20" value="20">
-    </div>
     <div class="po-log-grid" id="exNumFields">
       <div class="po-field">
         <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reps min</label>
@@ -1764,6 +1760,7 @@ img, video, canvas, svg { max-width: 100%; }
         <button class="po-btn-secondary" id="setExport">Export JSON</button>
         <button class="po-btn-secondary" id="setImport">Import JSON</button>
         <button class="po-btn-secondary" id="setReset" style="color:var(--bad);border-color:rgba(255,138,138,0.3)">Reset all</button>
+        <button class="po-btn-secondary" id="setResetWeights" style="color:var(--warn);border-color:rgba(255,191,36,0.25)">Reset weight logs</button>
       </div>
       <input type="file" id="setImportFile" accept=".json" style="display:none">
     </div>
@@ -1940,7 +1937,7 @@ img, video, canvas, svg { max-width: 100%; }
     noMsg.style.display = 'none';
     if (!f.find(e => e.id === state.currentEx)) state.currentEx = f[0].id;
     sel.innerHTML = f.map(e => {
-      const wLbl = e.bw ? ' · BW' : (e.startWeight ? ' · ' + e.startWeight + unit() : '');
+      const wLbl = e.bw ? ' · BW' : '';
       const sh = e.gym === 'both' ? ' ★' : '';
       return '<option value="' + e.id + '"' + (e.id === state.currentEx ? ' selected' : '') + '>' + escape(e.name) + wLbl + sh + '</option>';
     }).join('');
@@ -1987,14 +1984,12 @@ img, video, canvas, svg { max-width: 100%; }
     const logs = getLogs();
     const rx = getRx(ex, logs);
     if (!rx) {
-      const sw = ex.startWeight, sr = ex.repMin;
-      const head = ex.bw
-        ? '<span class="po-accent">' + sr + '</span> reps'
-        : '<span class="po-accent">' + (sw || 0) + unit() + '</span> × ' + sr + ' reps';
+      const sr = ex.repMin;
+      const head = '<span class="po-accent">' + sr + '</span> reps';
       const reason = ex.bw
         ? 'Aim for ' + ex.repMin + '-' + ex.repMax + ' clean reps. Once you hit ' + ex.repMax + '+, push for more.'
         : 'Hit ' + ex.repMin + '-' + ex.repMax + ' reps. Once logged, the coach will start prescribing.';
-      wrap.innerHTML = '<div class="po-rx-card"><div class="po-rx-label">' + escape(ex.name) + ' · starting point</div><div class="po-rx-headline">' + head + '</div><span class="po-rx-tag hold">Start here</span><p class="po-rx-reason">' + reason + '</p></div>';
+      wrap.innerHTML = '<div class="po-rx-card"><div class="po-rx-label">' + escape(ex.name) + '</div><div class="po-rx-headline">' + head + '</div><span class="po-rx-tag hold">Start here</span><p class="po-rx-reason">' + reason + '</p></div>';
       return;
     }
     const head = rx.bw
@@ -2055,33 +2050,58 @@ img, video, canvas, svg { max-width: 100%; }
       + '<path class="po-spark-fill" d="' + fillPath + '"/>'
       + '<path class="po-spark-line" d="' + linePath + '"/>';
   }
+  function dateKeyFromValue(value) {
+    const d = value instanceof Date ? value : new Date(value);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   function renderHistory() {
     const wrap = $('historyCard');
     const ex = getCurrentEx();
-    const logs = ex ? getLogs().slice().reverse() : [];
+    const logs = ex ? getLogs().slice() : [];
     if (!logs.length) {
       wrap.innerHTML = '<div class="po-empty">No logs yet.</div>';
       return;
     }
-    wrap.innerHTML = logs.slice(0, 12).map((l, i) => {
-      const d = new Date(l.date);
-      const dStr = (d.getMonth() + 1) + '/' + d.getDate();
-      const setStr = ex.bw ? (l.reps + ' reps') : (l.weight + unit() + ' × ' + l.reps);
-      const realIdx = logs.length - 1 - i; // since we reversed
+
+    const grouped = new Map();
+    logs.forEach(l => {
+      const key = dateKeyFromValue(l.date);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(l);
+    });
+
+    const todayKey = dateKeyFromValue(new Date());
+    const previousDays = Array.from(grouped.entries())
+      .filter(([key]) => key !== todayKey)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 3);
+
+    if (!previousDays.length) {
+      wrap.innerHTML = '<div class="po-empty">No previous days logged yet.</div>';
+      return;
+    }
+
+    wrap.innerHTML = previousDays.map(([dayKey, dayLogs]) => {
+      const [y, m, d] = dayKey.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      const dStr = (date.getMonth() + 1) + '/' + date.getDate();
+      const setCount = dayLogs.length;
+      const last = dayLogs[dayLogs.length - 1];
+      const setStr = ex.bw ? (last.reps + ' reps') : (last.weight + unit() + ' × ' + last.reps);
+      const summary = setCount > 1 ? (setCount + ' sets · ' + setStr) : setStr;
       return '<div class="po-hist-row">'
         + '<div class="po-hist-date">' + dStr + '</div>'
-        + '<div class="po-hist-set">' + setStr + '</div>'
-        + '<button class="po-hist-del" data-idx="' + realIdx + '" aria-label="Delete">×</button>'
+        + '<div class="po-hist-set">' + summary + '</div>'
+        + '<button class="po-hist-del" data-day="' + dayKey + '" aria-label="Delete day">×</button>'
         + '</div>';
     }).join('');
+
     wrap.querySelectorAll('.po-hist-del').forEach(b => {
       b.addEventListener('click', () => {
-        if (!confirm('Delete this log?')) return;
-        const realIdx = parseInt(b.dataset.idx, 10);
-        const arr = state.logs[state.currentEx] || [];
-        // realIdx is index in REVERSED list; map back to original
-        const origIdx = arr.length - 1 - realIdx;
-        arr.splice(origIdx, 1);
+        if (!confirm('Delete all logs from this day?')) return;
+        const dayKey = b.dataset.day;
+        const arr = (state.logs[state.currentEx] || []).filter(l => dateKeyFromValue(l.date) !== dayKey);
         if (!arr.length) delete state.logs[state.currentEx];
         else state.logs[state.currentEx] = arr;
         saveState(); renderAll();
@@ -2168,7 +2188,7 @@ img, video, canvas, svg { max-width: 100%; }
     const ex = getCurrentEx();
     if (ex && !ex.bw) {
       const logs = getLogs();
-      const w = logs.length ? logs[logs.length - 1].weight : (ex.startWeight || 0);
+      const w = logs.length ? logs[logs.length - 1].weight : 0;
       $('weightInput').value = w;
     }
   }
@@ -2434,7 +2454,6 @@ img, video, canvas, svg { max-width: 100%; }
       modalGym = ex.gym;
       modalDay = ex.day;
       $('exBw').checked = !!ex.bw;
-      $('exStartWeight').value = ex.startWeight || 0;
       $('exRepMin').value = ex.repMin;
       $('exRepMax').value = ex.repMax;
       $('exStep').value = ex.step;
@@ -2443,7 +2462,6 @@ img, video, canvas, svg { max-width: 100%; }
       modalGym = state.filterGym;
       modalDay = state.filterDay;
       $('exBw').checked = false;
-      $('exStartWeight').value = 20;
       $('exRepMin').value = 6;
       $('exRepMax').value = 8;
       $('exStep').value = 2.5;
@@ -2455,7 +2473,6 @@ img, video, canvas, svg { max-width: 100%; }
   }
   function toggleBwFields() {
     const isBw = $('exBw').checked;
-    $('exStartWeightField').style.display = isBw ? 'none' : '';
     $('exStepField').style.display = isBw ? 'none' : '';
   }
   $('exBw').addEventListener('change', toggleBwFields);
@@ -2476,7 +2493,6 @@ img, video, canvas, svg { max-width: 100%; }
     const data = {
       name, gym: modalGym, day: modalDay,
       bw: isBw,
-      startWeight: isBw ? 0 : (parseFloat($('exStartWeight').value) || 0),
       repMin, repMax,
       step: isBw ? 1 : (parseFloat($('exStep').value) || 2.5)
     };
@@ -2726,6 +2742,17 @@ img, video, canvas, svg { max-width: 100%; }
     state = loadState();
     $('setModalBg').classList.remove('show');
     renderAll();
+  });
+  $('setResetWeights').addEventListener('click', () => {
+    if (!confirm('Clear all logged workout weights and bodyweight entries? This cannot be undone.')) return;
+    state.logs = {};
+    saveState();
+    localStorage.removeItem(WT_KEY);
+    wtEntries = [];
+    $('setModalBg').classList.remove('show');
+    renderAll();
+    wtRender();
+    photosRender();
   });
 
   function escape(s) {
