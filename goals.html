@@ -1011,7 +1011,7 @@ body::after {
   }
   function storeSet(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
+    if (typeof key === 'string' && (key.indexOf('goals:') === 0 || key === 'daily_habits_v1' || key === 'daily_habits_history_v1' || key === 'goal_streak_v1')) {
       window.dispatchEvent(new CustomEvent('goals-changed'));
     }
   }

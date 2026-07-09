@@ -465,12 +465,29 @@ function activeDateKey(){ const d = new Date(); if (d.getHours() < 6) d.setDate(
 function statFor(file){
   try {
     if (file === 'goals.html') {
-      const key = 'goals:' + activeDateKey();
-      const list = lsGet(key) || [];
-      const total = Array.isArray(list) ? list.length : 0;
-      const done = Array.isArray(list) ? list.filter(g => g && g.done).length : 0;
+      const dateStr = activeDateKey();
+      const goalKey = 'goals:' + dateStr;
+      const goalList = lsGet(goalKey) || [];
+      const habitList = lsGet('daily_habits_v1') || [];
+      const totalGoals = Array.isArray(goalList) ? goalList.length : 0;
+      const doneGoals = Array.isArray(goalList) ? goalList.filter(g => g && g.done).length : 0;
+      const totalHabits = Array.isArray(habitList) ? habitList.length : 0;
+      const doneHabits = Array.isArray(habitList) ? habitList.filter(h => h && h.done && h.doneDate === dateStr).length : 0;
+      const total = totalGoals + totalHabits;
+      const done = doneGoals + doneHabits;
       const pct = total ? Math.round((done / total) * 100) : 0;
       return { value: pct + '%', label: 'daily tasks' };
+    }
+    else if (file === 'macros.html') {
+      const s = lsGet('macros_standalone_v1') || {};
+      const goalCal = s.goalCal != null ? s.goalCal : 2000;
+      const goalProtein = s.goalProtein != null ? s.goalProtein : 150;
+      const day = s[localDateKey()] || [];
+      const eatenCal = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.cal) || 0), 0) : 0;
+      const eatenProtein = Array.isArray(day) ? day.reduce((t, e) => t + (Number(e.p) || 0), 0) : 0;
+      const remainingCal = Math.max(0, Math.round(goalCal - eatenCal));
+      const remainingProtein = Math.max(0, Math.round(goalProtein - eatenProtein));
+      return { value: fmtNum(remainingCal) + ' kcal', label: fmtNum(remainingProtein) + 'g protein left' };
     }
     else if (file === 'supplements.html') { const s = lsGet('supplements_standalone_v1'); if (s && Array.isArray(s.items) && s.items.length) { const tk = (s.taken && s.taken[activeDateKey()]) || {}; const n = s.items.filter(i => tk[i.id]).length; return { value: n + '/' + s.items.length, label: 'taken today' }; } }
     else if (file === 'water.html') { const s = lsGet('water_standalone_v1'); if (s && s.logs) { const n = s.logs[localDateKey()] || 0; return { value: String(n), label: (n === 1 ? 'drink' : 'drinks') + ' today' }; } }
@@ -942,7 +959,10 @@ window.addEventListener('storage', e => {
   if (e.key === 'patron_theme' && e.newValue) { applyTheme(e.newValue); return; }
   if (e.key === HEALTH_KEY || e.key === LEGACY_WHOOP_KEY || e.key === null) { health = loadHealth(); render(); }
   if (e.key === LAYOUT_KEY) { render(); }
+  if (e.key && (e.key.indexOf('goals:') === 0 || e.key === 'daily_habits_v1' || e.key === 'daily_habits_history_v1' || e.key === 'goal_streak_v1' || e.key === 'macros_standalone_v1')) { render(); }
 });
+window.addEventListener('goals-changed', render);
+window.addEventListener('macros-changed', render);
 
 if (!profile) { ui.profileDraft = draftFromProfile(); ui.profileOpen = true; } // first run → onboarding prompt (init draft so typing is captured)
 applyTheme(currentTheme);

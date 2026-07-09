@@ -113,7 +113,7 @@ const FOODS = [
 /* ---- storage helpers ---- */
 function todayKey(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function loadAll(){ try { const r = localStorage.getItem(STORE_KEY); return r ? JSON.parse(r) : {}; } catch(e){ return {}; } }
-function saveAll(o){ try { localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch(e){} }
+function saveAll(o){ try { localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch(e){} window.dispatchEvent(new CustomEvent('macros-changed')); }
 let store = loadAll();
 function todaysLog(){ return store[todayKey()] || []; }
 function setTodaysLog(list){ store[todayKey()] = list; saveAll(store); }
