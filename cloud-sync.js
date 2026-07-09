@@ -15,9 +15,57 @@
   if (window.__patronCloudUI) return;
   window.__patronCloudUI = true;
 
-  var URL_KEY = 'po_supabase_url', ANON_KEY = 'po_supabase_key';
-  function getU() { return (localStorage.getItem(URL_KEY) || '').trim(); }
-  function getK() { return (localStorage.getItem(ANON_KEY) || '').trim(); }
+  var URL_KEY = 'po_supabase_url', ANON_KEY = 'po_supabase_key', CONFIG_KEY = 'patron_supabase_config_v1';
+  function readSharedConfig() {
+    try {
+      var raw = localStorage.getItem(CONFIG_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && (parsed.url || parsed.key)) {
+          return { url: String(parsed.url || '').trim(), key: String(parsed.key || '').trim() };
+        }
+      }
+    } catch (_) {}
+    return { url: '', key: '' };
+  }
+  function persistSharedConfig(u, k) {
+    var url = (u || '').trim();
+    var key = (k || '').trim();
+    try {
+      localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: url, key: key }));
+    } catch (_) {}
+    if (url && key) {
+      localStorage.setItem(URL_KEY, url);
+      localStorage.setItem(ANON_KEY, key);
+    } else {
+      localStorage.removeItem(URL_KEY);
+      localStorage.removeItem(ANON_KEY);
+      localStorage.removeItem(CONFIG_KEY);
+    }
+    window.PatronSupabaseConfig = { url: url, key: key };
+  }
+  function getU() {
+    var shared = readSharedConfig();
+    if (shared.url) return shared.url;
+    return (localStorage.getItem(URL_KEY) || '').trim();
+  }
+  function getK() {
+    var shared = readSharedConfig();
+    if (shared.key) return shared.key;
+    return (localStorage.getItem(ANON_KEY) || '').trim();
+  }
+  function hydrateSharedConfig() {
+    var shared = readSharedConfig();
+    var u = (shared.url || '').trim();
+    var k = (shared.key || '').trim();
+    if (!u && !k) {
+      u = (localStorage.getItem(URL_KEY) || '').trim();
+      k = (localStorage.getItem(ANON_KEY) || '').trim();
+    }
+    if (u || k) { persistSharedConfig(u, k); }
+    else { window.PatronSupabaseConfig = { url: '', key: '' }; }
+  }
+  hydrateSharedConfig();
   // Connected = either keys are pasted OR db.js has a working (baked-in) connection.
   function connected() { return (window.PatronDB && PatronDB.isCloud()) || !!(getU() && getK()); }
 
@@ -70,12 +118,11 @@
     document.getElementById('csCancel').onclick = close;
     document.getElementById('csSave').onclick = function () {
       var u = document.getElementById('csUrl').value.trim(), k = document.getElementById('csKey').value.trim();
-      if (u && k) { localStorage.setItem(URL_KEY, u); localStorage.setItem(ANON_KEY, k); }
-      else { localStorage.removeItem(URL_KEY); localStorage.removeItem(ANON_KEY); }
+      persistSharedConfig(u, k);
       location.reload(); // reload so db.js picks up the new keys everywhere
     };
     var dc = document.getElementById('csDisconnect');
-    if (dc) dc.onclick = function () { localStorage.removeItem(URL_KEY); localStorage.removeItem(ANON_KEY); location.reload(); };
+    if (dc) dc.onclick = function () { persistSharedConfig('', ''); location.reload(); };
     function close() { ov.remove(); }
   }
 })();

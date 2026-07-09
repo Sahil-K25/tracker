@@ -3456,10 +3456,23 @@ img, video, canvas, svg { max-width: 100%; }
   // If you leave the placeholders unchanged the app still works,
   // just only on this device (data stays in your browser).
   // ============================================================
-  // Supabase keys come from localStorage (pasted in Settings) or, if blank, from
-  // PatronDB which loads them from /api/config (Vercel env vars). No keys in code.
-  const SUPABASE_URL = ((localStorage.getItem('po_supabase_url') || '').trim()) || ((window.PatronDB && PatronDB.cfgUrl && PatronDB.cfgUrl()) || '');
-  const SUPABASE_KEY = ((localStorage.getItem('po_supabase_key') || '').trim()) || ((window.PatronDB && PatronDB.cfgKey && PatronDB.cfgKey()) || '');
+  // Supabase keys come from the shared config (saved by the cloud-sync panel),
+  // the legacy localStorage keys, or PatronDB which loads them from /api/config.
+  function getSharedSupabaseConfig() {
+    try {
+      const raw = localStorage.getItem('patron_supabase_config_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.url || parsed.key)) {
+          return { url: String(parsed.url || '').trim(), key: String(parsed.key || '').trim() };
+        }
+      }
+    } catch (_) {}
+    return { url: ((localStorage.getItem('po_supabase_url') || '').trim()), key: ((localStorage.getItem('po_supabase_key') || '').trim()) };
+  }
+  const sharedSupabaseConfig = getSharedSupabaseConfig();
+  const SUPABASE_URL = sharedSupabaseConfig.url || ((window.PatronDB && PatronDB.cfgUrl && PatronDB.cfgUrl()) || '');
+  const SUPABASE_KEY = sharedSupabaseConfig.key || ((window.PatronDB && PatronDB.cfgKey && PatronDB.cfgKey()) || '');
   const APP_KEY = 'po-coach';
   // Note: po_coach_photos IS synced, but only URL-pointer entries ride
   // the wire. The actual JPEG lives in Supabase Storage. pcCollectState

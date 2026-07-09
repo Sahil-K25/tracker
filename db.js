@@ -26,8 +26,21 @@ window.PatronDB = (function () {
   //   1. localStorage override (user pasted keys via the ☁ panel)
   //   2. /api/config  (THIS deploy's Vercel env vars: SUPABASE_URL / SUPABASE_ANON_KEY)
   // A fresh fork with no env vars set stays local-only until its owner adds them.
-  const _ovUrl = (localStorage.getItem('po_supabase_url') || '').trim();
-  const _ovKey = (localStorage.getItem('po_supabase_key') || '').trim();
+  function _readSharedConfig() {
+    try {
+      const raw = localStorage.getItem('patron_supabase_config_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.url || parsed.key)) {
+          return { url: String(parsed.url || '').trim(), key: String(parsed.key || '').trim() };
+        }
+      }
+    } catch (_) {}
+    return { url: '', key: '' };
+  }
+  const _shared = _readSharedConfig();
+  const _ovUrl = (localStorage.getItem('po_supabase_url') || '').trim() || (_shared.url || '');
+  const _ovKey = (localStorage.getItem('po_supabase_key') || '').trim() || (_shared.key || '');
 
   let URL = _ovUrl;
   let KEY = _ovKey;
